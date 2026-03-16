@@ -19,9 +19,6 @@ def parse_dc_url(url):
     (게시판 목록 페이지 및 개별 게시글 상세 페이지 URL 모두 지원)
     """
     url = url.strip()
-    
-    # lists(목록)와 view(상세) 경로를 모두 포함하고, 
-    # 파라미터 중 id값을 정확히 추출하도록 정규식 개선
     match = re.search(r'gall\.dcinside\.com/(?:(mgallery|mini)/)?board/(?:lists|view).*?[\?&]id=([a-zA-Z0-9_]+)', url)
     
     if match:
@@ -51,6 +48,11 @@ def fetch_post_list(session, gal_type, gal_id, page=1):
     
     try:
         res = session.get(list_url, params=params, headers=HEADERS, verify=False, timeout=5)
+        
+        # 💡 [핵심] 차단당했을 때 조용히 넘어가지 않고 명확한 에러를 발생시킴
+        if res.status_code != 200:
+            raise Exception(f"디시인사이드 접근 차단 (상태 코드: {res.status_code}) - 클라우드 서버 IP가 차단되었을 확률이 높습니다.")
+            
         soup = BeautifulSoup(res.text, 'html.parser')
         posts = []
         
@@ -64,7 +66,7 @@ def fetch_post_list(session, gal_type, gal_id, page=1):
             title_elem = row.select_one('.gall_tit a')
             title = title_elem.text.strip() if title_elem else "제목 누락"
             
-            # 💡 [핵심 추가] 댓글 수 추출
+            # 💡 댓글 수 추출
             reply_elem = row.select_one('.reply_num')
             comment_count = 0
             if reply_elem:
@@ -80,14 +82,14 @@ def fetch_post_list(session, gal_type, gal_id, page=1):
             posts.append({
                 "post_no": post_no,
                 "title": title,
-                "comment_count": comment_count, # 👈 추출한 댓글 수 저장
+                "comment_count": comment_count,
                 "author": f"{author_name} ({ip_elem.text.strip()})" if ip_elem else author_name,
                 "user_type": "유동" if ip_elem else "고닉/반고닉"
             })
         return posts
     except Exception as e:
         print(f"[Error] 목록 수집 중 예외 발생: {e}")
-        return []
+        raise Exception(f"수집 실패: {e}")
 
 def fetch_post_detail(session, gal_type, gal_id, post_no):
     """게시글 본문 및 비동기 댓글 수집 (보안 토큰 우회 적용)"""
@@ -95,14 +97,12 @@ def fetch_post_detail(session, gal_type, gal_id, post_no):
     params = {'id': gal_id, 'no': post_no}
     
     try:
-        # 1. 본문 페이지 접속 및 세션 유지
         res = session.get(view_url, params=params, headers=HEADERS, verify=False, timeout=5)
         soup = BeautifulSoup(res.text, 'html.parser')
         
         body_div = soup.select_one('.write_div')
         body_text = body_div.text.strip() if body_div else "본문 누락"
         
-        # 2. 댓글 수집을 위한 보안 토큰(e_spt) 추출
         e_spt_elem = soup.select_one('#e_spt')
         e_spt = e_spt_elem['value'] if e_spt_elem else ""
         
@@ -116,21 +116,13 @@ def fetch_post_detail(session, gal_type, gal_id, post_no):
             })
             
             payload = {
-                "id": gal_id,
-                "no": post_no,
-                "cmt_id": gal_id,
-                "cmt_no": post_no,
-                "e_spt": e_spt,
-                "comment_page": 1,
-                "sort": "D",
-                "_v": "2b3133"
+                "id": gal_id, "no": post_no, "cmt_id": gal_id, "cmt_no": post_no,
+                "e_spt": e_spt, "comment_page": 1, "sort": "D", "_v": "2b3133"
             }
             
-            # 3. 추출한 토큰을 포함하여 비동기 댓글 API 호출
             c_res = session.post(comment_url, data=payload, headers=comment_headers, verify=False, timeout=5)
             
             if c_res.status_code == 200:
-                # JSON/HTML 다중 파싱 로직
                 try:
                     c_data = c_res.json()
                     if c_data and isinstance(c_data, dict) and c_data.get('comments'):
@@ -148,14 +140,13 @@ def fetch_post_detail(session, gal_type, gal_id, post_no):
         return {"body": f"수집 에러: {e}", "comments": []}
 
 def run_dc_scraper(url, max_posts=5):
-    """스크래퍼 메인 파이프라인 (app.py에서 호출하는 메인 함수)"""
+    """스크래퍼 메인 파이프라인"""
     gal_type, gal_id = parse_dc_url(url)
     if not gal_type: 
         raise ValueError("유효하지 않은 URL 형식입니다.")
     
     print(f"[{gal_id}] 대상 데이터 수집 프로세스 시작...")
     
-    # 세션 객체를 생성하여 쿠키(Cookie) 상태 유지
     session = requests.Session()
     post_list = fetch_post_list(session, gal_type, gal_id)
     
@@ -166,8 +157,6 @@ def run_dc_scraper(url, max_posts=5):
         print(f"진행 상황 ({idx+1}/{len(target_posts)}) - 문서 번호: {post['post_no']} 수집 중...")
         detail = fetch_post_detail(session, gal_type, gal_id, post['post_no'])
         results.append({**post, **detail})
-        
-        # 서버 부하 방지를 위한 임의 지연
         time.sleep(random.uniform(1.0, 2.5))
         
     return {"gallery_id": gal_id, "data": results}
