@@ -14,9 +14,15 @@ HEADERS = {
 }
 
 def parse_dc_url(url):
-    """URL 분석 및 갤러리 속성(타입, ID) 추출"""
+    """
+    URL 분석 및 갤러리 속성(타입, ID) 추출
+    (게시판 목록 페이지 및 개별 게시글 상세 페이지 URL 모두 지원)
+    """
     url = url.strip()
-    match = re.search(r'gall\.dcinside\.com/(?:(mgallery|mini)/)?board/lists/\??(?:.*&)?id=([a-zA-Z0-9_]+)', url)
+    
+    # lists(목록)와 view(상세) 경로를 모두 포함하고, 
+    # 파라미터 중 id값을 정확히 추출하도록 정규식 개선
+    match = re.search(r'gall\.dcinside\.com/(?:(mgallery|mini)/)?board/(?:lists|view).*?[\?&]id=([a-zA-Z0-9_]+)', url)
     
     if match:
         gal_type_str = match.group(1)
