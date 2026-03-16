@@ -5,11 +5,11 @@ import threading
 from config import APP_VERSION, NOTION_PUBLISH_URL, GEMINI_API_KEY, NOTION_TOKEN, TICKER_INTERVAL, ENV_NAME
 from dc_scraper import run_dc_scraper, parse_dc_url
 from ai_analyzer import analyze_with_gemini
-# from notion_exporter import upload_to_notion # 이 부분은 나중에 노션 로직 수정 후 연결
+from notion_exporter import upload_to_notion
 
 st.set_page_config(page_title="디시인사이드 갤러리 탈곡기", page_icon="🚜", layout="wide")
 
-# CSS 주입 (기존과 동일)
+# CSS 주입: UI 개선 및 상단 배너 고정
 st.markdown("""
     <style>
         .fixed-banner {
@@ -26,7 +26,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if ENV_NAME == "DEV":
-    st.markdown('<div class="fixed-banner">🚧 개발 환경 (DEV MODE)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="fixed-banner">🚧 개발 환경 (DEV MODE) - 테스트 데이터를 자유롭게 활용하세요.</div>', unsafe_allow_html=True)
 
 def render_step_indicator(current_step):
     progress_val = int((current_step + 1) * 33.3)
@@ -50,9 +50,7 @@ def main():
     st.write("")
     render_step_indicator(st.session_state.step)
 
-    # ---------------------------------------------------------
-    # Step 0: URL 입력 및 크롤링/분석
-    # ---------------------------------------------------------
+    # --- Step 1. URL 입력 및 크롤링/분석 ---
     if st.session_state.step == 0:
         with st.container(border=True):
             st.subheader("🎯 Step 1. 분석 대상 입력")
@@ -61,7 +59,8 @@ def main():
             if st.button("🚀 데이터 수집 및 분석 시작", use_container_width=True, type="primary"):
                 gal_type, gal_id = parse_dc_url(raw_input)
                 if not gal_id: 
-                    st.warning("유효한 디시인사이드 갤러리 URL을 입력해 주세요."); return
+                    st.warning("유효한 디시인사이드 갤러리 URL을 입력해 주세요.")
+                    return
                 
                 with st.status(f"[{gal_id}] 갤러리 민심 수집 및 분석 중... 🌾", expanded=True) as status:
                     p_bar = st.progress(0); info_txt = st.empty()
@@ -69,12 +68,12 @@ def main():
                     # 1. 스크래핑 진행
                     info_txt.write("🔍 1/3: 갤러리 최신 개념글/게시글 긁어오는 중...")
                     try:
-                        # 💡 일단 10개만 테스트로 수집! (원하면 늘려도 됨)
                         scraper_result = run_dc_scraper(raw_input, max_posts=10)
                         post_data = scraper_result['data']
                     except Exception as e:
                         status.update(label="수집 에러", state="error")
-                        st.error(f"스크래핑 실패: {e}"); return
+                        st.error(f"스크래핑 실패: {e}")
+                        return
                         
                     p_bar.progress(40)
                     
@@ -101,7 +100,8 @@ def main():
                         
                     if res_box[1]: 
                         status.update(label="분석 에러", state="error")
-                        st.error(f"AI 분석 실패: {res_box[1]}"); return
+                        st.error(f"AI 분석 실패: {res_box[1]}")
+                        return
 
                     # 3. 분석 완료
                     st.session_state.update({
@@ -113,9 +113,7 @@ def main():
                     ticker.empty(); info_txt.write("✅ 3/3: 분석 완료!"); p_bar.progress(100)
                     st.session_state.step = 1; status.update(label="✅ 분석 완료", state="complete"); st.rerun()
 
-    # ---------------------------------------------------------
-    # Step 1: 분석 리포트 화면 검수 (웹 초안)
-    # ---------------------------------------------------------
+    # --- Step 2. 분석 리포트 화면 검수 ---
     elif st.session_state.step == 1:
         st.subheader(f"Step 2. [{st.session_state.gallery_id} 갤러리] 리포트 검수")
         ins = st.session_state.insights
@@ -144,7 +142,8 @@ def main():
             st.markdown("### 👥 작성자 유형별 교차 분석")
             user_analysis = ins.get('user_type_analysis', {})
             
-            st.warning("**⚖️ 핵심 인사이트 (고닉 vs 유동)**\n\n" + "\n".join([f"- {i}" for i in user_analysis.get('comparison_insights', [])]))
+            if user_analysis.get('comparison_insights'):
+                st.warning("**⚖️ 핵심 인사이트 (고닉 vs 유동)**\n\n" + "\n".join([f"- {i}" for i in user_analysis.get('comparison_insights', [])]))
             
             p1, p2 = st.columns(2)
             with p1:
@@ -157,7 +156,7 @@ def main():
         with tab3:
             st.markdown(f"**총 {len(st.session_state.post_data)}개의 게시글 데이터를 기반으로 분석했습니다.**")
             for p in st.session_state.post_data:
-                st.write(f"- **{p['title']}** (💬 댓글: {p['comment_count']}개 / 👤 {p['author']})")
+                st.write(f"- **{p['title']}** (💬 댓글: {p.get('comment_count', 0)}개 / 👤 {p['author']})")
 
         st.divider()
         with st.container(border=True):
@@ -172,7 +171,20 @@ def main():
                         st.session_state.insights = res; st.rerun()
             with col2:
                 if st.button("📤 노션 리포트 최종 발행", type="primary", use_container_width=True):
-                    # 🚀 이 부분은 다음 단계에서 노션 모듈을 고친 후 연결할게!
-                    st.info("아직 노션 전송 모듈이 디시 버전에 맞게 수정되지 않았어! 다음 스텝에서 연결하자!")
+                    with st.status("노션 페이지 생성 중..."):
+                        pid = upload_to_notion(st.session_state.gallery_id, st.session_state.post_data, st.session_state.insights)
+                        st.session_state.page_id = pid
+                        st.session_state.step = 2
+                        st.rerun()
+
+    # --- Step 3. 노션 발행 완료 화면 ---
+    elif st.session_state.step == 2:
+        st.balloons()
+        st.success("🎉 디시인사이드 분석 리포트 발행이 완료되었습니다.")
+        p_url = f"https://notion.so/{st.session_state.page_id.replace('-', '')}"
+        st.markdown(f'<div style="padding:30px; border-radius:15px; background-color:#1e2129; text-align:center;"><a href="{p_url}" target="_blank" style="font-size:1.5em; color:#3b4890; font-weight:bold; text-decoration:none;">🔗 생성된 노션 리포트 확인</a></div>', unsafe_allow_html=True)
+        if st.button("🔄 다른 갤러리 분석하기", use_container_width=True):
+            for k in [k for k in st.session_state.keys() if k != 'history']: del st.session_state[k]
+            st.rerun()
 
 if __name__ == "__main__": main()
