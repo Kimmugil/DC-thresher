@@ -5,7 +5,7 @@ import streamlit as st
 # ─────────────────────────────────────────────
 ENV = "dev"
 
-APP_VERSION     = "v3.0.0"
+APP_VERSION     = "v2.0.0"
 ENV_NAME        = ENV.upper()
 TICKER_INTERVAL = 2.5
 
