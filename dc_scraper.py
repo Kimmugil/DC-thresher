@@ -1,23 +1,18 @@
 """
-dc_scraper.py v5
+dc_scraper.py v6
 
-[개념글 문제 근본 해결]
-디씨 앱 API (recommend=1) 는 해외 IP / 특정 환경에서 빈 배열 반환.
-웹 HTML에서도 개념글 클래스(.icon_recom 등)가 환경에 따라 감지 안 됨.
+[핵심 변경]
+- 본문 수집 상한 적용: max(MIN, min(MAX_BODY, top_pct%))
+  → 아무리 대형 갤러리여도 MAX_BODY = 30개 이상 본문 안 뽑음
+- 스팸 필터: 제목 길이 3자 미만 or 제목이 반복 패턴 게시글 제외
+- 전체 목록 수집(날짜/수 집계)은 그대로 유지
+- 본문 없이도 AI에게 제목+댓글수 메타는 전달 → AI가 스팸성 판단
 
-→ 새로운 전략: "고관여 게시글" 선정
-  - 전체 게시글 수집 후 댓글 수 상위 20% 를 핵심 분석 대상으로 선정
-  - 개념글 여부 대신 "참여도(댓글 수)" 기준
-  - 이는 실제로도 더 합리적: 반응 많은 글 = 민심 집약점
-  - 웹 목록에서 개념글 아이콘 감지 시도는 유지 (되면 보너스)
-
-[수집 전략]
-  diagnose_gallery: 웹 목록 빠른 진단
-  run_dc_scraper:
-    1) 전체 목록 수집 (날짜 분포 + 댓글 수)
-    2) 댓글 수 상위 20% → "핵심 게시글" (ANALYSIS_MIN_POSTS개 이상)
-    3) 핵심 게시글 본문 수집
-    4) 14일 차트 별도 집계 (분석 기간과 무관하게 항상)
+[수집 전략 요약]
+  1. 전체 목록 수집  : 날짜별 게시글 수 집계용 (본문 X)
+  2. 핵심 게시글 선정: 댓글 수 상위 + 스팸 필터링 → 최대 30개
+  3. 본문 수집       : 선정된 30개만 순차 수집
+  4. AI 분석         : 30개 본문 + 전체 목록 메타 전달
 """
 
 import requests
@@ -30,10 +25,15 @@ from config import (
     DETAIL_DELAY_MIN, DETAIL_DELAY_MAX,
     REQUEST_TIMEOUT, BODY_MAX_CHARS, SUBTYPE_KEYWORDS,
     DIAG_MIN_POSTS, DIAG_MIN_DAYS, DIAG_MAX_DAYS,
-    ANALYSIS_MIN_CONCEPT_POSTS,
 )
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# ── 상수 ──────────────────────────────────────────────────────────
+MAX_BODY_POSTS   = 50    # 본문 수집 최대 개수
+TOP_PCT          = 0.10  # 전체의 상위 10%
+MIN_BODY_POSTS   = 20    # 최소 20개 (전체가 적어도)
+SPAM_MIN_TITLE   = 4     # 제목 최소 길이(글자)
 
 WEB_HEADERS = {
     "User-Agent": (
@@ -50,30 +50,22 @@ APP_HEADERS = {
 APP_ID   = "aW0vNGVja05kc0hTSllkTXBqbGFyVzRQZEFvNml6cEJ2enk1VVYxSml6cz0="
 APP_LIST = "http://app.dcinside.com/api/gall_list_new.php"
 
-# 핵심 게시글 선정 기준
-CORE_POST_TOP_PERCENT = 0.20   # 댓글 수 상위 20%
-CORE_POST_MIN_COUNT   = 50     # 최소 50개 보장
 
-
+# ── URL 유틸 ──────────────────────────────────────────────────────
 def parse_dc_url(url: str):
-    url = url.strip()
     m = re.search(
         r'gall\.dcinside\.com/(?:(mgallery|mini)/)?board/(?:lists|view).*?[\?&]id=([a-zA-Z0-9_]+)',
-        url
+        url.strip()
     )
     if not m: return None, None
     s = m.group(1)
-    if s == "mgallery": gal_type = "minor"
-    elif s == "mini":   gal_type = "mini"
-    else:               gal_type = "regular"
+    gal_type = {"mgallery": "minor", "mini": "mini"}.get(s, "regular")
     return gal_type, m.group(2)
 
 
-def _web_urls(t):
-    if t == "minor":
-        return "https://gall.dcinside.com/mgallery/board/lists/", "https://gall.dcinside.com/mgallery/board/view/"
-    if t == "mini":
-        return "https://gall.dcinside.com/mini/board/lists/", "https://gall.dcinside.com/mini/board/view/"
+def _urls(t):
+    if t == "minor": return "https://gall.dcinside.com/mgallery/board/lists/", "https://gall.dcinside.com/mgallery/board/view/"
+    if t == "mini":  return "https://gall.dcinside.com/mini/board/lists/",     "https://gall.dcinside.com/mini/board/view/"
     return "https://gall.dcinside.com/board/lists/", "https://gall.dcinside.com/board/view/"
 
 
@@ -83,27 +75,38 @@ def _post_url(t, gid, no):
     return f"https://gall.dcinside.com/board/view/?id={gid}&no={no}"
 
 
+# ── 날짜 파싱 ─────────────────────────────────────────────────────
 def _parse_date(s):
     s = (s or "").strip()
+    now = datetime.now()
     try:
-        if not s: return datetime.now()
-        if re.match(r'^\d{2}:\d{2}$', s): return datetime.now()
-        if re.match(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$', s):
-            return datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
-        if re.match(r'^\d{2}\.\d{2}$', s):
-            return datetime.strptime(s, "%m.%d").replace(year=datetime.now().year)
-        if re.match(r'^\d{2}\.\d{2}\.\d{2}$', s): return datetime.strptime(s, "%y.%m.%d")
-        if re.match(r'^\d{4}\.\d{2}\.\d{2}$', s): return datetime.strptime(s, "%Y.%m.%d")
+        if not s or re.match(r'^\d{2}:\d{2}$', s): return now
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%m.%d", "%y.%m.%d", "%Y.%m.%d"):
+            try:
+                d = datetime.strptime(s, fmt)
+                return d.replace(year=now.year) if fmt == "%m.%d" else d
+            except ValueError:
+                continue
     except Exception:
         pass
-    return datetime.now()
+    return now
 
 
-def _date_str(row):
-    e = row.select_one(".gall_date")
-    if not e: return ""
-    if e.has_attr("title") and e["title"].strip(): return e["title"].strip()
-    return e.text.strip()
+# ── 웹 HTML 파싱 ──────────────────────────────────────────────────
+def _gname(soup):
+    try:
+        return re.sub(r"\s*(갤러리|마이너 갤러리|미니 갤러리)$", "",
+                      soup.select_one(".title_main").text.strip())
+    except Exception:
+        return ""
+
+
+def _soup(sess, url, params):
+    try:
+        r = sess.get(url, params=params, headers=WEB_HEADERS, verify=False, timeout=REQUEST_TIMEOUT)
+        return BeautifulSoup(r.text, "html.parser")
+    except Exception:
+        return None
 
 
 def _skip(row):
@@ -114,27 +117,18 @@ def _skip(row):
     return not num or not num.text.strip().isdigit()
 
 
-def _gname(soup):
-    try:
-        raw = soup.select_one(".title_main").text.strip()
-        return re.sub(r"\s*(갤러리|마이너 갤러리|미니 갤러리)$", "", raw)
-    except Exception:
-        return ""
+def _date_str(row):
+    e = row.select_one(".gall_date")
+    if not e: return ""
+    return e.get("title", "").strip() or e.text.strip()
 
 
-def _soup(session, url, params):
-    try:
-        r = session.get(url, params=params, headers=WEB_HEADERS, verify=False, timeout=REQUEST_TIMEOUT)
-        return BeautifulSoup(r.text, "html.parser")
-    except Exception:
-        return None
-
-
-def _is_concept_html(row) -> bool:
-    """웹 HTML에서 개념글 여부 감지 (되면 좋고 안 돼도 괜찮음)"""
-    classes = " ".join(row.get("class", []))
-    if "recommend" in classes or "bg_recommend" in classes: return True
-    if row.select_one(".icon_recom, .icon_recomsmall, .bg_recomsmall"): return True
+def _is_spam(title: str) -> bool:
+    """스팸성 게시글 필터: 제목이 너무 짧거나 반복 패턴"""
+    t = title.strip()
+    if len(t) < SPAM_MIN_TITLE: return True
+    # ㅋㅋㅋ / ㅠㅠㅠ 같은 반복 자모만 있는 경우
+    if re.match(r'^[ㄱ-ㅎㅏ-ㅣ\s]+$', t): return True
     return False
 
 
@@ -143,18 +137,22 @@ def _parse_row(row, gtype, gid):
     if not ne: return None
     dt   = _parse_date(_date_str(row))
     te   = row.select_one(".gall_tit a")
+    title = te.text.strip() if te else ""
     re_e = row.select_one(".reply_num")
     cc   = int(re.sub(r"[^0-9]","",re_e.text)) if re_e and re.sub(r"[^0-9]","",re_e.text) else 0
     ae   = row.select_one(".gall_writer")
     ip_e = ae.select_one(".ip") if ae else None
     nk_e = ae.select_one(".nickname") if ae else None
     nm   = nk_e.text.strip() if nk_e else "알 수 없음"
+    # 웹 HTML 개념글 감지 시도
+    classes = " ".join(row.get("class", []))
+    is_concept = "recommend" in classes or bool(row.select_one(".icon_recom, .icon_recomsmall"))
     return {
         "post_no":       ne.text.strip(),
-        "title":         te.text.strip() if te else "",
+        "title":         title,
         "date":          dt.strftime("%Y-%m-%d"),
         "_dt":           dt,
-        "is_concept":    _is_concept_html(row),  # HTML 감지 시도
+        "is_concept":    is_concept,
         "comment_count": cc,
         "author":        f"{nm} ({ip_e.text.strip()})" if ip_e and nk_e else nm,
         "user_type":     "유동" if ip_e else "고닉",
@@ -162,8 +160,8 @@ def _parse_row(row, gtype, gid):
     }
 
 
-def _try_app_api_concepts(gid, gtype, cutoff):
-    """앱 API 개념글 수집 시도. 실패하면 빈 리스트 반환."""
+# ── 앱 API 개념글 시도 (실패 무시) ───────────────────────────────
+def _try_concepts_api(gid, gtype, cutoff):
     results = []; seen = set(); sess = requests.Session()
     for page in range(1, 100):
         try:
@@ -173,8 +171,9 @@ def _try_app_api_concepts(gid, gtype, cutoff):
             raw = r.json()
         except Exception:
             break
-
-        if isinstance(raw, list):              posts = raw
+        # 응답 구조 방어 파싱
+        if isinstance(raw, list):
+            posts = raw
         elif isinstance(raw, dict):
             candidate = None
             for k in ("gall_list","data","list","posts","result"):
@@ -185,7 +184,6 @@ def _try_app_api_concepts(gid, gtype, cutoff):
             posts = candidate if isinstance(candidate, list) else []
         else:
             posts = []
-
         if not posts: break
 
         added = 0; old_seq = 0
@@ -202,66 +200,53 @@ def _try_app_api_concepts(gid, gtype, cutoff):
             old_seq = 0
             seen.add(no)
             title = (p.get("subject") or p.get("gall_subject") or p.get("title") or "").strip()
-            try:
-                cc = int(re.sub(r"[^0-9]","", str(p.get("reply_num") or p.get("comment_cnt") or "0")) or "0")
-            except Exception:
-                cc = 0
+            try: cc = int(re.sub(r"[^0-9]","", str(p.get("reply_num") or p.get("comment_cnt") or "0")) or "0")
+            except: cc = 0
             results.append({
-                "post_no":       no,
-                "title":         title,
-                "date":          dt.strftime("%Y-%m-%d"),
-                "_dt":           dt,
-                "is_concept":    True,
-                "comment_count": cc,
-                "author":        p.get("name") or p.get("gall_writer") or "알 수 없음",
-                "user_type":     "고닉" if (p.get("member_id") or p.get("user_id")) else "유동",
-                "post_url":      _post_url(gtype, gid, no),
+                "post_no": no, "title": title,
+                "date": dt.strftime("%Y-%m-%d"), "_dt": dt,
+                "is_concept": True, "comment_count": cc,
+                "author": p.get("name") or p.get("gall_writer") or "알 수 없음",
+                "user_type": "고닉" if (p.get("member_id") or p.get("user_id")) else "유동",
+                "post_url": _post_url(gtype, gid, no),
             })
             added += 1
-
         if added <= 0: break
         time.sleep(random.uniform(SCRAPE_DELAY_MIN, SCRAPE_DELAY_MAX))
-
     return results
 
 
-def _select_core_posts(all_metas: list, min_count: int) -> list:
+# ── 핵심 게시글 선정 ──────────────────────────────────────────────
+def _select_core(all_metas: list) -> list:
     """
-    댓글 수 기준 핵심 게시글 선정.
-    개념글(is_concept=True)이 충분하면 우선 사용,
-    없으면 댓글 수 상위 20%를 핵심 게시글로 선정.
+    1. 스팸 필터 적용
+    2. 댓글 수 내림차순 정렬
+    3. max(MIN_BODY_POSTS, min(MAX_BODY_POSTS, 상위 TOP_PCT%)) 개 선정
     """
-    concept_posts = [m for m in all_metas if m.get("is_concept")]
+    filtered = [m for m in all_metas if not _is_spam(m["title"])]
+    if not filtered:
+        filtered = all_metas  # 필터 후 전부 제거되면 원본 사용
 
-    if len(concept_posts) >= min_count:
-        return concept_posts
+    # 댓글 수 내림차순 + 날짜 최신순 복합 정렬
+    sorted_m = sorted(filtered, key=lambda x: (-x["comment_count"], x["_dt"]), reverse=False)
+    sorted_m = sorted(sorted_m, key=lambda x: -x["comment_count"])
 
-    # 개념글 부족 → 댓글 수 상위 20% 선정
-    sorted_by_comments = sorted(all_metas, key=lambda x: -x["comment_count"])
-    top_n = max(min_count, int(len(all_metas) * CORE_POST_TOP_PERCENT))
-    core  = sorted_by_comments[:top_n]
-
-    # 개념글도 포함 (중복 제거)
-    seen_nos = {p["post_no"] for p in core}
-    for cp in concept_posts:
-        if cp["post_no"] not in seen_nos:
-            core.append(cp)
-
-    return sorted(core, key=lambda x: x["_dt"])
+    top_n = max(MIN_BODY_POSTS, min(MAX_BODY_POSTS, int(len(filtered) * TOP_PCT)))
+    return sorted(sorted_m[:top_n], key=lambda x: x["_dt"])
 
 
-# ── 진단 ────────────────────────────────────────────────────────────
+# ── 진단 ─────────────────────────────────────────────────────────
 def diagnose_gallery(url, progress_cb=None):
     gtype, gid = parse_dc_url(url)
     if not gid: return {"error": "유효하지 않은 URL 형식입니다.", "gallery_id": None}
 
     sess = requests.Session()
-    lu, _ = _web_urls(gtype)
+    lu, _ = _urls(gtype)
     s0 = _soup(sess, lu, {"id": gid})
     gname = (_gname(s0) if s0 else "") or gid
     if progress_cb: progress_cb(f"[{gname}] 진단 중...", 5)
 
-    hard_co = datetime.now() - timedelta(days=DIAG_MAX_DAYS)
+    cutoff = datetime.now() - timedelta(days=DIAG_MAX_DAYS)
     rows = []; seen = set(); old_s = 0; done = False
 
     for page in range(1, 300):
@@ -270,13 +255,12 @@ def diagnose_gallery(url, progress_cb=None):
         if not s: break
         trs = s.select("tr.ub-content.us-post")
         if not trs: break
-
         padded = 0
         for tr in trs:
             if _skip(tr): continue
             m = _parse_row(tr, gtype, gid)
             if not m or m["post_no"] in seen: continue
-            if m["_dt"] < hard_co:
+            if m["_dt"] < cutoff:
                 old_s += 1
                 if old_s >= 5: old_s = 9999; break
                 continue
@@ -286,8 +270,7 @@ def diagnose_gallery(url, progress_cb=None):
                 span = (rows[0]["_dt"] - m["_dt"]).days
                 if len(rows) >= DIAG_MIN_POSTS or (span >= DIAG_MIN_DAYS and len(rows) >= 50):
                     done = True; break
-
-        if progress_cb: progress_cb(f"진단 중... ({len(rows)}개)", min(85, 5 + len(rows)//5))
+        if progress_cb: progress_cb(f"진단 중... ({len(rows)}개)", min(85, 5+len(rows)//5))
         if old_s >= 9999 or padded == 0: break
         time.sleep(random.uniform(SCRAPE_DELAY_MIN, SCRAPE_DELAY_MAX))
 
@@ -295,58 +278,49 @@ def diagnose_gallery(url, progress_cb=None):
     rows.sort(key=lambda x: x["_dt"], reverse=True)
 
     dc    = Counter(r["date"] for r in rows)
-    total = len(rows)
-    daily = total / max(len(dc), 1)
-    concept_count = sum(1 for r in rows if r["is_concept"])
-
+    daily = len(rows) / max(len(dc), 1)
     words = []
     for r in rows:
-        if r["title"]:
-            words.extend(w.lower() for w in re.findall(r"[가-힣a-zA-Z]{2,}", r["title"]))
+        if r["title"]: words.extend(w.lower() for w in re.findall(r"[가-힣a-zA-Z]{2,}", r["title"]))
     SW = {"이","그","저","이거","ㅋㅋ","ㅠㅠ","진짜","뭔","왜","좀","다","하는","합니다"}
     wf = Counter(w for w in words if w not in SW)
-    top_words = [w for w, _ in wf.most_common(15)]
-
-    all_t  = " ".join(words)
-    scores = {s: sum(all_t.count(k.lower()) for k in ks) for s, ks in SUBTYPE_KEYWORDS.items()}
-    dates  = sorted(dc.keys())
+    all_t = " ".join(words)
+    dates = sorted(dc.keys())
     if progress_cb: progress_cb("진단 완료!", 100)
-
     return {
         "gallery_id": gid, "gallery_name": gname, "gal_type": gtype,
-        "total_rows": total, "daily_avg": round(daily, 1),
-        "date_counts": dict(dc), "concept_count": concept_count,
+        "total_rows": len(rows), "daily_avg": round(daily, 1),
+        "date_counts": dict(dc),
         "diag_start": dates[0] if dates else "",
         "diag_end":   dates[-1] if dates else "",
-        "top_title_words": top_words, "subtype_scores": scores,
+        "top_title_words": [w for w, _ in wf.most_common(15)],
+        "subtype_scores": {s: sum(all_t.count(k.lower()) for k in ks) for s, ks in SUBTYPE_KEYWORDS.items()},
         "error": None,
     }
 
 
-# ── 수집 + 본문 ──────────────────────────────────────────────────────
+# ── 수집 메인 ────────────────────────────────────────────────────
 def run_dc_scraper(url, days_limit, progress_cb=None):
     gtype, gid = parse_dc_url(url)
     if not gid: raise ValueError("유효하지 않은 URL 형식입니다.")
 
     sess = requests.Session()
-    lu, vu = _web_urls(gtype)
+    lu, vu = _urls(gtype)
     s0 = _soup(sess, lu, {"id": gid})
     gname = (_gname(s0) if s0 else "") or gid
     if progress_cb: progress_cb("개념글 수집 시도 중...", 3)
 
     cutoff    = datetime.now() - timedelta(days=days_limit)
     cutoff_14 = datetime.now() - timedelta(days=14)
-    collect_cutoff = min(cutoff, cutoff_14)
+    collect_co = min(cutoff, cutoff_14)  # 14일 차트를 위해 더 넓게
 
-    # Phase 1: 앱 API 개념글 시도 (실패해도 계속)
-    app_concepts = _try_app_api_concepts(gid, gtype, cutoff)
+    # Phase 1: 앱 API 개념글 시도
+    api_concepts = _try_concepts_api(gid, gtype, cutoff)
     if progress_cb:
-        if app_concepts:
-            progress_cb(f"개념글 {len(app_concepts)}개 수집. 전체 목록 집계 중...", 15)
-        else:
-            progress_cb("고관여 게시글 선정 방식으로 전환. 전체 목록 집계 중...", 15)
+        msg = f"개념글 {len(api_concepts)}개 수집." if api_concepts else "고관여 게시글 방식으로 수집."
+        progress_cb(f"{msg} 전체 목록 집계 중...", 12)
 
-    # Phase 2: 웹 전체 목록 수집 (14일 보장)
+    # Phase 2: 웹 전체 목록 (날짜 분포 + 메타)
     all_metas = []; seen = set(); old_s = 0; done = False
     for page in range(1, 500):
         if done: break
@@ -354,57 +328,46 @@ def run_dc_scraper(url, days_limit, progress_cb=None):
         if not s: break
         trs = s.select("tr.ub-content.us-post")
         if not trs: break
-
         padded = 0
         for tr in trs:
             if _skip(tr): continue
             m = _parse_row(tr, gtype, gid)
             if not m or m["post_no"] in seen: continue
-            if m["_dt"] < collect_cutoff:
+            if m["_dt"] < collect_co:
                 old_s += 1
                 if old_s >= 5: done = True; break
                 continue
-            old_s = 0
-            seen.add(m["post_no"]); all_metas.append(m); padded += 1
-
-        if progress_cb and len(all_metas) % 200 == 0 and len(all_metas) > 0:
-            progress_cb(f"목록 집계 중... ({len(all_metas)}개)", min(28, 15 + len(all_metas)//100))
+            old_s = 0; seen.add(m["post_no"]); all_metas.append(m); padded += 1
         if padded == 0: break
-        time.sleep(random.uniform(SCRAPE_DELAY_MIN*0.5, SCRAPE_DELAY_MAX*0.5))
+        time.sleep(random.uniform(SCRAPE_DELAY_MIN*0.4, SCRAPE_DELAY_MAX*0.4))
 
-    # Phase 3: 앱 API 개념글을 all_metas에 병합 (중복 제거)
-    web_nos = {m["post_no"] for m in all_metas}
-    for cp in app_concepts:
-        if cp["post_no"] not in web_nos:
-            # cutoff 범위 내인 것만
-            if cp["_dt"] >= collect_cutoff:
-                all_metas.append(cp)
-                web_nos.add(cp["post_no"])
-        else:
-            # 웹에서 가져온 것을 is_concept=True로 업데이트
-            for m in all_metas:
-                if m["post_no"] == cp["post_no"]:
-                    m["is_concept"] = True
-                    break
+    # Phase 3: 앱 개념글을 웹 목록과 병합 (is_concept 태그 업데이트)
+    web_nos = {m["post_no"]: i for i, m in enumerate(all_metas)}
+    for cp in api_concepts:
+        if cp["post_no"] in web_nos:
+            all_metas[web_nos[cp["post_no"]]]["is_concept"] = True
+        elif cp["_dt"] >= collect_co:
+            all_metas.append(cp)
 
-    # Phase 4: 핵심 게시글 선정 (분석 기간 기준)
+    # Phase 4: 분석 기간 기준 메타 분리
     analysis_metas = [m for m in all_metas if m["_dt"] >= cutoff]
-    core_posts = _select_core_posts(analysis_metas, CORE_POST_MIN_COUNT)
-    core_posts.sort(key=lambda x: x["_dt"])
+    fourteen_metas = [m for m in all_metas if m["_dt"] >= cutoff_14]
 
-    if not core_posts:
+    # Phase 5: 핵심 게시글 선정 (댓글 상위 + 스팸 필터 + 상한 30개)
+    core = _select_core(analysis_metas)
+    concept_count = sum(1 for m in analysis_metas if m.get("is_concept"))
+
+    if not core:
         raise Exception(f"최근 {days_limit}일 이내 분석 가능한 게시글이 없습니다.")
 
-    concept_count = sum(1 for m in analysis_metas if m.get("is_concept"))
-    core_is_concept = sum(1 for m in core_posts if m.get("is_concept"))
+    if progress_cb: progress_cb(f"본문 수집 시작... ({len(core)}개)", 30)
 
-    if progress_cb: progress_cb(f"본문 수집 시작... ({len(core_posts)}개)", 30)
-
-    # Phase 5: 본문 수집
+    # Phase 6: 본문 수집 (최대 30개)
     results = []
-    for idx, m in enumerate(core_posts):
-        if progress_cb and idx % 5 == 0:
-            progress_cb(f"본문 추출 중... ({idx+1}/{len(core_posts)})", 30 + int(idx/len(core_posts)*65))
+    for idx, m in enumerate(core):
+        if progress_cb:
+            pct = 30 + int(idx / len(core) * 65)
+            progress_cb(f"본문 추출 중... ({idx+1}/{len(core)})", pct)
         try:
             r = sess.get(vu, params={"id": gid, "no": m["post_no"]},
                          headers=WEB_HEADERS, verify=False, timeout=REQUEST_TIMEOUT)
@@ -413,29 +376,24 @@ def run_dc_scraper(url, days_limit, progress_cb=None):
             body = re.sub(r"\s+", " ", bd.get_text(separator=" ").strip())[:BODY_MAX_CHARS] if bd else "본문 누락"
         except Exception:
             body = "본문 수집 오류"
-        clean = {k: v for k, v in m.items() if k != "_dt"}
-        results.append({**clean, "body": body})
+        results.append({**{k: v for k, v in m.items() if k != "_dt"}, "body": body})
         time.sleep(random.uniform(DETAIL_DELAY_MIN, DETAIL_DELAY_MAX))
 
-    # 날짜별 집계
-    dc_analysis = Counter(m["date"] for m in analysis_metas)
-    dc_14       = Counter(m["date"] for m in all_metas if m["_dt"] >= cutoff_14)
-    dates       = sorted(m["date"] for m in analysis_metas)
-
+    dc_ana = Counter(m["date"] for m in analysis_metas)
+    dc_14  = Counter(m["date"] for m in fourteen_metas)
+    dates  = sorted(m["date"] for m in analysis_metas)
     return {
         "gallery_id":      gid,
         "gallery_name":    gname,
         "gal_type":        gtype,
         "all_metas":       [{k:v for k,v in m.items() if k!="_dt"} for m in analysis_metas],
         "analysis_data":   results,
-        "date_counts":     dict(dc_analysis),
+        "date_counts":     dict(dc_ana),
         "date_counts_14":  dict(dc_14),
         "total_posts":     len(analysis_metas),
         "concept_posts":   concept_count,
-        "core_posts":      len(core_posts),
-        "core_is_concept": core_is_concept,
-        "normal_posts":    len(analysis_metas) - concept_count,
+        "core_posts":      len(core),
         "analysis_count":  len(results),
-        "analysis_method": "concept" if concept_count >= CORE_POST_MIN_COUNT else "high_engagement",
+        "analysis_method": "concept" if concept_count >= 5 else "high_engagement",
         "date_range_str":  f"{dates[0]} ~ {dates[-1]}" if dates else "기간 알 수 없음",
     }
