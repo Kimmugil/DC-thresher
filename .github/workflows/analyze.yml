@@ -1,0 +1,45 @@
+name: AI Gallery Analysis Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      gallery_url:
+        description: 'URL of the DC Inside Gallery'
+        required: true
+      uuid:
+        description: 'UUID for tracking the report'
+        required: true
+
+jobs:
+  analyze_and_save:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: |
+          cd python_scripts
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Scraper and AI Analyzer
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          cd python_scripts
+          python main_worker.py "${{ github.event.inputs.gallery_url }}" "${{ github.event.inputs.uuid }}"
+
+      - name: Save Results to Google Sheets
+        env:
+          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+        run: |
+          cd python_scripts
+          python save_to_sheets.py "${{ github.event.inputs.uuid }}"
