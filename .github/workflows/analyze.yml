@@ -32,6 +32,7 @@ jobs:
       - name: Run Scraper and AI Analyzer
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           cd python_scripts
           python main_worker.py "${{ github.event.inputs.gallery_url }}" "${{ github.event.inputs.uuid }}"
@@ -40,6 +41,7 @@ jobs:
         env:
           GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
           GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           cd python_scripts
           python save_to_sheets.py "${{ github.event.inputs.uuid }}"
