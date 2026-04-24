@@ -1,4 +1,10 @@
-import streamlit as st
+import os
+
+try:
+    import streamlit as st
+    HAS_STREAMLIT = True
+except ImportError:
+    HAS_STREAMLIT = False
 
 # ─────────────────────────────────────────────
 # 환경 스위치
@@ -10,9 +16,19 @@ ENV_NAME        = ENV.upper()
 TICKER_INTERVAL = 2.5
 
 # API 키
-GEMINI_API_KEY     = st.secrets[ENV]["GEMINI_API_KEY"]
-NOTION_TOKEN       = st.secrets[ENV]["NOTION_TOKEN"]
-NOTION_DATABASE_ID = st.secrets[ENV]["NOTION_DATABASE_ID"]
+if HAS_STREAMLIT:
+    try:
+        GEMINI_API_KEY     = st.secrets[ENV]["GEMINI_API_KEY"]
+        NOTION_TOKEN       = st.secrets[ENV]["NOTION_TOKEN"]
+        NOTION_DATABASE_ID = st.secrets[ENV]["NOTION_DATABASE_ID"]
+    except Exception:
+        GEMINI_API_KEY     = os.environ.get("GEMINI_API_KEY", "")
+        NOTION_TOKEN       = os.environ.get("NOTION_TOKEN", "")
+        NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID", "")
+else:
+    GEMINI_API_KEY     = os.environ.get("GEMINI_API_KEY", "")
+    NOTION_TOKEN       = os.environ.get("NOTION_TOKEN", "")
+    NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID", "")
 
 # ─────────────────────────────────────────────
 # 스크래핑 설정
