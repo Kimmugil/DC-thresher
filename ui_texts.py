@@ -340,72 +340,63 @@ def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_des
                                 subtype_focus, analysis_focus_label,
                                 post_data_text, analysis_days, total_posts,
                                 concept_posts, date_summary):
-    bt = chr(96) * 3
-    return f"""
-당신은 커뮤니티 데이터 분석 전문가입니다.
-다음은 '{gallery_id}' ({game_name}) 갤러리에서 수집된 게시글 데이터입니다.
-오직 주어진 데이터에 근거하여 팩트 중심으로 작성하십시오.
+    return f"""당신은 커뮤니티 데이터 분석 전문가입니다.
+아래 게시글 데이터를 바탕으로 '{game_name}' 갤러리의 현황을 분석하십시오.
+오직 주어진 데이터에 근거한 팩트만 작성하십시오.
 
 [분석 대상]
-- 게임/주제: {game_name}
-- 갤러리 유형: {subtype_label} — {subtype_desc}
-- 전체 게시글 수: {total_posts}개 (일자별: {date_summary})
+- 게임: {game_name} | 유형: {subtype_label} | 게시글 수: {total_posts}개
+- 일자별 분포: {date_summary}
 
-[작성 가이드라인]:
-1. 결과물에 마크다운 코드 블록 기호({bt})를 절대 포함하지 마십시오. 순수 JSON만 출력.
-2. 🚨 [JSON 문법 최우선] 모든 텍스트 내부에 큰따옴표(")나 줄바꿈 제어 문자를 절대 사용하지 마십시오. 강조는 작은따옴표(')를 사용하십시오.
-3. 마크다운 볼드체(**), 물결표(~) 기호 사용 금지.
-4. [객관성 최우선] 주관적 판단·추측·과대해석 배제. 게시글에서 확인 가능한 팩트만 명사형 종결로 나열하십시오.
-5. 핵심 키워드는 반드시 정확히 5개만 추출하십시오.
-6. [출처 표기 의무] 특정 게시글을 언급할 때는 문장 끝에 "[제목](URL)" 형식으로 링크를 달 것.
-7. [ref_url 필수] sentiment_summary 각 항목에 반드시 실제 게시글 URL을 ref_url에 채울 것. URL이 없는 항목은 포함하지 마십시오.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 출력 규칙 (위반 시 응답 전체 무효)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. 순수 JSON만 출력. 코드블록(```) 절대 금지.
+2. JSON 텍스트 값 내 큰따옴표(") · 줄바꿈(\\n) 절대 금지. 강조는 작은따옴표(') 사용.
+3. 마크다운 기호(** ~ #) 사용 금지.
+4. 전체 응답은 반드시 15,000자 이내.
 
-[점수 산출 기준]:
-- mention_score (0-100): 전체 분석 게시글 대비 해당 이슈 키워드 언급 게시글 비율. 10개 중 10개=100점.
-- complaint score (0-10): 해당 카테고리 키워드 언급 비율. 30% 이상=7~10점 / 10~30%=4~6점 / 10% 미만=0~3점.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📐 필드별 길이 제한 (엄수)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- critic_one_liner : 50자 이내, 이모지 1개 포함, 현상 서술형
+- summary (모든 필드): 80자 이내
+- issue_title      : 15자 이내
+- issue_detail     : 80자 이내
+- example          : 40자 이내 (직접 인용 금지, 핵심 표현만 압축)
+- top_keywords     : 정확히 5개, 각 10자 이내
+- positive 배열    : 중요도 상위 3개만
+- negative 배열    : 중요도 상위 3개만
+- major_issues 배열: 상위 5개만
+- ref_url          : 실제 URL이 있을 때만 포함, 없으면 빈 문자열
 
-[critic_one_liner 작성 기준 — 매우 중요]:
-- 분석 기간 내 게시글에서 실제 확인된 현상만 담아 서술하십시오.
-- '심화', '악화', '갈등', '위기' 등 데이터로 입증되지 않는 정성적 판단 표현은 절대 사용하지 마십시오.
-- '~에 대한 게시글이 다수 확인됨', '~관련 여론이 존재함' 처럼 현상을 있는 그대로 서술하십시오.
-- 갤러리 유형명(안정기형, 폭발형 등)은 절대 언급하지 마십시오.
-- 이모지 1개를 앞에 포함하십시오.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 점수 기준
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- mention_score(0-100): 전체 게시글 중 해당 이슈 언급 비율
+- complaint score(0-10): 키워드 언급 비율 (30%↑→7-10 / 10-30%→4-6 / 10%↓→0-3)
 
-[major_issues 작성 기준]:
-- issue_title: 이슈 명칭만 (짧고 명확하게, 10자 이내 권장)
-- issue_detail: 해당 이슈의 구체적 팩트 내용 (1~2문장)
-
-[출력 JSON 스키마]:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 출력 JSON 스키마
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{
-  "critic_one_liner": "현상 서술형 한줄 요약 (이모지 포함)",
-  "top_keywords": ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5"],
+  "critic_one_liner": "이모지+현상서술 50자이내",
+  "top_keywords": ["키워드1","키워드2","키워드3","키워드4","키워드5"],
   "sentiment_summary": {{
-    "positive": [
-      {{"summary": "긍정 팩트 요약", "ref_url": "https://... (필수)"}}
-    ],
-    "negative": [
-      {{"summary": "부정 팩트 요약", "ref_url": "https://... (필수)"}}
-    ]
+    "positive": [{{"summary": "80자이내","ref_url": ""}}],
+    "negative": [{{"summary": "80자이내","ref_url": ""}}]
   }},
   "major_issues": [
-    {{
-      "issue_title": "이슈 명칭 (짧게)",
-      "issue_detail": "이슈 구체적 팩트 내용",
-      "mention_score": 0,
-      "ref_url": "관련 게시글 URL (없으면 빈 문자열)"
-    }}
+    {{"issue_title":"15자이내","issue_detail":"80자이내","mention_score":0,"ref_url":""}}
   ],
   "complaint_analysis": {{
-    "balance":   {{"score": 0, "summary": "팩트 요약", "example": "대표 발언", "example_url": ""}},
-    "operation": {{"score": 0, "summary": "팩트 요약", "example": "대표 발언", "example_url": ""}},
-    "bug":       {{"score": 0, "summary": "팩트 요약", "example": "대표 발언", "example_url": ""}},
-    "payment":   {{"score": 0, "summary": "팩트 요약", "example": "대표 발언", "example_url": ""}},
-    "content":   {{"score": 0, "summary": "팩트 요약", "example": "대표 발언", "example_url": ""}}
+    "balance":   {{"score":0,"summary":"80자이내","example":"40자이내","example_url":""}},
+    "operation": {{"score":0,"summary":"80자이내","example":"40자이내","example_url":""}},
+    "bug":       {{"score":0,"summary":"80자이내","example":"40자이내","example_url":""}},
+    "payment":   {{"score":0,"summary":"80자이내","example":"40자이내","example_url":""}},
+    "content":   {{"score":0,"summary":"80자이내","example":"40자이내","example_url":""}}
   }}
 }}
 
-[positive는 가장 중요도 높은 최대 5개, negative는 가장 중요도 높은 최대 5개만 포함하십시오.]
-
-[AI 분석 표본 게시글]:
-{post_data_text}
-"""
+[분석 표본 게시글]
+{post_data_text}"""

@@ -1,61 +1,77 @@
 """
-ai_analyzer.py v5
-- suggested_focus: 배열 반환 시 첫 원소 추출 (프롬프트에서 단일 문자열 보장)
-- analyze_gallery: user_feedback 파라미터 완전 제거
-- _format_posts: 배지 구분 제거 (개념글 구분 불필요)
+ai_analyzer.py v6
+
+[v6 변경]
+- GEMINI_MODEL을 환경변수(GEMINI_MODEL)로 오버라이드 가능
+- _call_gemini: timeout/5xx 오류 시 1회 재시도 (지수 백오프)
 """
-import requests, json, re
+import os, requests, json, re, time
 from config import GEMINI_API_KEY
 from ui_texts import build_diagnosis_ai_prompt, build_main_analysis_prompt
 
 GEMINI_BASE  = "https://generativelanguage.googleapis.com/v1beta/models"
-GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 
-def _call_gemini(prompt: str, json_mode: bool = True, timeout: int = 60) -> tuple:
-    """공통 Gemini 호출. (result, error) 반환."""
+def _call_gemini(prompt: str, json_mode: bool = True, timeout: int = 60, retries: int = 1) -> tuple:
+    """공통 Gemini 호출. (result, error) 반환. timeout/5xx 발생 시 최대 retries회 재시도."""
     url = f"{GEMINI_BASE}/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}".strip()
     cfg = {"temperature": 0.1}
     if json_mode:
         cfg["responseMimeType"] = "application/json"
 
     payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": cfg}
-    try:
-        res = requests.post(
-            url,
-            headers={"Content-Type": "application/json"},
-            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-            timeout=timeout,
-        )
-        res.raise_for_status()
-        raw = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+    raw = ""
 
-        if json_mode:
-            bt  = chr(96) * 3
-            raw = re.sub(r"^" + bt + r"(?:json)?\s*", "", raw, flags=re.MULTILINE | re.IGNORECASE)
-            raw = re.sub(r"\s*" + bt + r"$",           "", raw, flags=re.MULTILINE)
-            raw = re.sub(r",\s*([\]}])",               r"\1", raw)
-            return json.loads(raw, strict=False), None
-        return raw, None
+    for attempt in range(retries + 1):
+        try:
+            res = requests.post(
+                url,
+                headers={"Content-Type": "application/json"},
+                data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                timeout=timeout,
+            )
+            res.raise_for_status()
+            raw = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
 
-    except json.JSONDecodeError as je:
-        snippet = raw[max(0, je.pos - 40):min(len(raw), je.pos + 40)] if "raw" in dir() else ""
-        return None, f"JSON 파싱 오류: [... {snippet} ...]\n재분석 버튼을 눌러 다시 시도해 주세요."
-    except requests.exceptions.HTTPError as e:
-        code = e.response.status_code
-        if code == 429:
-            return None, "API 호출 한도 초과(429). 잠시 후 다시 시도해 주세요."
-        return None, f"Gemini API 오류 (HTTP {code})"
-    except Exception as e:
-        return None, str(e).replace(GEMINI_API_KEY or "", "***")
+            if json_mode:
+                bt  = chr(96) * 3
+                raw = re.sub(r"^" + bt + r"(?:json)?\s*", "", raw, flags=re.MULTILINE | re.IGNORECASE)
+                raw = re.sub(r"\s*" + bt + r"$",           "", raw, flags=re.MULTILINE)
+                raw = re.sub(r",\s*([\]}])",               r"\1", raw)
+                return json.loads(raw, strict=False), None
+            return raw, None
+
+        except json.JSONDecodeError as je:
+            snippet = raw[max(0, je.pos - 40):min(len(raw), je.pos + 40)] if raw else ""
+            return None, f"JSON 파싱 오류: [... {snippet} ...]\n재분석 버튼을 눌러 다시 시도해 주세요."
+
+        except requests.exceptions.Timeout:
+            if attempt < retries:
+                time.sleep(5 * (attempt + 1))
+                continue
+            return None, "요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요."
+
+        except requests.exceptions.HTTPError as e:
+            code = e.response.status_code
+            if code == 429:
+                return None, "API 호출 한도 초과(429). 잠시 후 다시 시도해 주세요."
+            if code >= 500 and attempt < retries:
+                time.sleep(5)
+                continue
+            return None, f"Gemini API 오류 (HTTP {code})"
+
+        except Exception as e:
+            if attempt < retries:
+                time.sleep(3)
+                continue
+            return None, str(e).replace(GEMINI_API_KEY or "", "***")
+
+    return None, "알 수 없는 오류로 분석에 실패했습니다."
 
 
 def diagnose_gallery_ai(gallery_name: str, top_words: list,
                          subtype_id: str, daily_avg: float) -> tuple:
-    """
-    Step 0 경량 AI 호출 — 갤러리 주제 파악 및 분석 방향 추천.
-    suggested_focus를 단일 문자열로 보장 (구버전 배열 반환 대응).
-    """
     prompt = build_diagnosis_ai_prompt(gallery_name, top_words, subtype_id, daily_avg)
     result, err = _call_gemini(prompt, json_mode=True, timeout=30)
     if result and isinstance(result.get("suggested_focus"), list):
@@ -64,7 +80,6 @@ def diagnose_gallery_ai(gallery_name: str, top_words: list,
 
 
 def _format_posts(post_data: list) -> str:
-    """분석용 게시글 텍스트 포맷."""
     lines = []
     for idx, post in enumerate(post_data):
         body = (
@@ -87,11 +102,6 @@ def _format_posts(post_data: list) -> str:
 def analyze_gallery(gallery_id: str, game_name: str, subtype_id: str,
                     analysis_data: list, all_metas: list,
                     analysis_days: int, analysis_focus: str = "default") -> tuple:
-    """
-    메인 분석.
-    analysis_data : 본문 포함 고관여 게시글
-    all_metas     : 전체 목록 메타 (날짜 분포 통계용)
-    """
     from config import GALLERY_SUBTYPES, ANALYSIS_FOCUS_OPTIONS
     from collections import Counter
 

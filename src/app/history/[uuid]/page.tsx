@@ -1,248 +1,453 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Calendar, AlertTriangle, MessageSquare, Flame, CheckCircle2, RefreshCw } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ArrowLeft, Loader2, Calendar, AlertTriangle,
+  CheckCircle2, Clock, TrendingUp, TrendingDown,
+  ExternalLink, Tag, Flame, BarChart2,
+} from "lucide-react";
 import axios from "axios";
 
-interface ReportData {
-  uuid: string;
-  status: "PENDING" | "COMPLETED" | "FAILED";
-  galleryName?: string;
-  gameName?: string;
-  requestedAt?: string;
-  completedAt?: string;
-  aiInsights?: string; // Stored as JSON string in sheets
-  rawData?: string;    // Stored as JSON string in sheets
+// ── Gemini 실제 출력 타입 ─────────────────────────────────────────
+interface SentimentItem { summary: string; ref_url: string }
+interface MajorIssue {
+  issue_title:   string;
+  issue_detail:  string;
+  mention_score: number;
+  ref_url:       string;
+}
+interface ComplaintCategory {
+  score:       number;
+  summary:     string;
+  example:     string;
+  example_url: string;
+}
+interface AiInsights {
+  critic_one_liner?: string;
+  top_keywords?:     string[];
+  sentiment_summary?: {
+    positive?: SentimentItem[];
+    negative?: SentimentItem[];
+  };
+  major_issues?:      MajorIssue[];
+  complaint_analysis?: {
+    balance?:   ComplaintCategory;
+    operation?: ComplaintCategory;
+    bug?:       ComplaintCategory;
+    payment?:   ComplaintCategory;
+    content?:   ComplaintCategory;
+  };
+  // save_to_sheets.py 가 추가하는 메타
+  game_name?:    string;
+  gallery_name?: string;
 }
 
+interface ReportData {
+  uuid:         string;
+  status:       "PENDING" | "COMPLETED" | "FAILED";
+  galleryName?: string;
+  gameName?:    string;
+  requestedAt?: string;
+  completedAt?: string;
+  aiInsights?:  string;
+}
+
+// ── 상수 ──────────────────────────────────────────────────────────
+const MAX_POLLS     = 60;
+const POLL_INTERVAL = 10_000;
+
+const COMPLAINT_META: Record<string, { label: string; emoji: string }> = {
+  balance:   { label: "밸런스/게임성",   emoji: "⚖️"  },
+  operation: { label: "운영/소통",        emoji: "📢"  },
+  bug:       { label: "버그/최적화",      emoji: "🐛"  },
+  payment:   { label: "과금/BM",          emoji: "💳"  },
+  content:   { label: "콘텐츠/업데이트",  emoji: "🎮"  },
+};
+
+// ── 헬퍼 ──────────────────────────────────────────────────────────
+function scoreColor(score: number, max = 10) {
+  const ratio = score / max;
+  if (ratio >= 0.7) return { text: "#fca5a5", bg: "rgba(239,68,68,0.12)",  border: "rgba(239,68,68,0.25)"  };
+  if (ratio >= 0.4) return { text: "#fcd34d", bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.25)" };
+  return                   { text: "#a5b4fc", bg: "rgba(99,102,241,0.1)",  border: "rgba(99,102,241,0.2)"  };
+}
+
+function MentionBar({ score }: { score: number }) {
+  const pct = Math.min(100, Math.max(0, score));
+  const color = pct >= 60 ? "#f87171" : pct >= 30 ? "#fbbf24" : "#818cf8";
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--bg-raised)" }}>
+        <motion.div
+          className="h-full rounded-full"
+          style={{ backgroundColor: color }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        />
+      </div>
+      <span className="text-xs font-bold w-8 text-right" style={{ color }}>{pct}</span>
+    </div>
+  );
+}
+
+// ── 메인 컴포넌트 ─────────────────────────────────────────────────
 export default function ReportPage() {
-  const { uuid } = useParams();
-  const router = useRouter();
-  const [report, setReport] = useState<ReportData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [insights, setInsights] = useState<{
-    gallery_summary?: string;
-    key_topics?: { topic: string; details: string }[];
-    complaints?: { issue: string; severity: string; context: string; suggestion: string }[];
-    action_plans?: string[];
-  } | null>(null);
+  const { uuid }  = useParams();
+  const router    = useRouter();
+  const pollCount = useRef(0);
+
+  const [report,   setReport]   = useState<ReportData | null>(null);
+  const [insights, setInsights] = useState<AiInsights | null>(null);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState("");
+  const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
-    const fetchReport = async () => {
+    if (!uuid) return;
+    pollCount.current = 0;
+    let cancelled = false;
+
+    const poll = async () => {
+      if (cancelled) return;
       try {
-        const res = await axios.get(`/api/history/${uuid}`);
-        const data = res.data.report;
+        const res  = await axios.get(`/api/history/${uuid}`);
+        const data = res.data.report as ReportData;
+        if (cancelled) return;
+
         setReport(data);
 
-        if (data.status === "COMPLETED" && data.aiInsights) {
-          try {
-            setInsights(JSON.parse(data.aiInsights));
-          } catch (e) {
-            console.error("Failed to parse AI Insights JSON", e);
+        if (data.status === "COMPLETED" || data.status === "FAILED") {
+          if (data.aiInsights) {
+            try { setInsights(JSON.parse(data.aiInsights)); } catch { /* ignore */ }
           }
+          setLoading(false);
+          return;
         }
+
+        setLoading(false);
+        pollCount.current += 1;
+        if (pollCount.current >= MAX_POLLS) { setTimedOut(true); return; }
+        setTimeout(poll, POLL_INTERVAL);
+
       } catch (err: unknown) {
-        const axiosError = err as { response?: { status?: number } };
-        if (axiosError.response?.status === 404) {
-          setError("해당 리포트를 찾을 수 없습니다.");
-        } else {
-          setError("리포트를 불러오는 중 오류가 발생했습니다.");
-        }
-      } finally {
+        if (cancelled) return;
+        const e = err as { response?: { status?: number } };
+        setError(e.response?.status === 404
+          ? "해당 리포트를 찾을 수 없습니다."
+          : "리포트를 불러오는 중 오류가 발생했습니다.");
         setLoading(false);
       }
     };
 
-    fetchReport();
-    
-    // Auto refresh if pending
-    let interval: NodeJS.Timeout;
-    if (report?.status === "PENDING") {
-      interval = setInterval(() => {
-        fetchReport();
-      }, 10000); // Check every 10 seconds
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [uuid, report?.status]);
+    poll();
+    return () => { cancelled = true; };
+  }, [uuid]);
 
-  if (loading && !report) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
-        <p className="text-gray-600 font-medium text-lg">리포트 데이터를 불러오는 중...</p>
+  // ── 로딩 ──────────────────────────────────────────────────────────
+  if (loading && !report) return (
+    <div className="min-h-screen flex flex-col items-center justify-center" style={{ backgroundColor: "var(--bg-base)" }}>
+      <Loader2 size={36} className="animate-spin text-indigo-400 mb-3" />
+      <p className="text-sm" style={{ color: "var(--text-secondary)" }}>리포트 데이터를 불러오는 중...</p>
+    </div>
+  );
+
+  // ── 오류 ──────────────────────────────────────────────────────────
+  if (error) return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ backgroundColor: "var(--bg-base)" }}>
+      <div className="text-center max-w-sm w-full p-8 rounded-2xl border" style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}>
+        <AlertTriangle size={40} className="text-red-400 mx-auto mb-4" />
+        <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>오류 발생</h2>
+        <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>{error}</p>
+        <button onClick={() => router.push("/history")}
+          className="w-full py-2.5 rounded-xl text-sm font-semibold border"
+          style={{ backgroundColor: "var(--bg-raised)", color: "var(--text-primary)", borderColor: "var(--border)" }}>
+          목록으로 돌아가기
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white p-8 rounded-3xl shadow-lg text-center max-w-md w-full">
-          <AlertTriangle className="text-red-500 mx-auto mb-4" size={48} />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">오류 발생</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button 
-            onClick={() => router.push('/history')}
-            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition w-full"
-          >
-            목록으로 돌아가기
-          </button>
+  // ── PENDING ──────────────────────────────────────────────────────
+  if (report?.status === "PENDING" || (!report?.status || (report.status !== "COMPLETED" && report.status !== "FAILED"))) return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ backgroundColor: "var(--bg-base)" }}>
+      <div className="text-center max-w-md w-full p-8 rounded-2xl border relative overflow-hidden"
+        style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}>
+        <div className="absolute top-0 left-0 right-0 h-0.5 overflow-hidden" style={{ backgroundColor: "var(--bg-raised)" }}>
+          <motion.div className="h-full bg-indigo-500"
+            animate={{ x: ["-100%", "100%"] }}
+            transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }} />
         </div>
-      </div>
-    );
-  }
-
-  if (report?.status === "PENDING") {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white p-10 rounded-3xl shadow-xl text-center max-w-lg w-full border border-blue-100 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500 animate-pulse" />
-          
-          <RefreshCw className="text-blue-500 mx-auto mb-6 animate-spin" size={56} />
-          <h2 className="text-2xl font-extrabold text-gray-900 mb-3">AI가 갤러리를 분석 중입니다</h2>
-          <p className="text-gray-600 mb-6">
-            스크래핑 및 AI 분석에는 갤러리 규모에 따라 약 1~3분이 소요됩니다.<br/>
-            이 페이지를 켜두시면 분석 완료 시 자동으로 화면이 갱신됩니다.
-          </p>
-          
-          <div className="bg-gray-50 p-4 rounded-xl text-left border border-gray-100">
-            <p className="text-sm text-gray-500 flex justify-between mb-1">
-              <span>요청 ID</span> <span className="font-mono">{uuid?.slice(0,8)}...</span>
-            </p>
-            <p className="text-sm text-gray-500 flex justify-between">
-              <span>요청 시간</span> <span>{report.requestedAt ? new Date(report.requestedAt).toLocaleTimeString() : '-'}</span>
-            </p>
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5"
+          style={{ backgroundColor: "rgba(99,102,241,0.1)" }}>
+          <Loader2 size={28} className="animate-spin text-indigo-400" />
+        </div>
+        <h2 className="text-xl font-black mb-2" style={{ color: "var(--text-primary)" }}>AI가 갤러리를 분석 중입니다</h2>
+        <p className="text-sm mb-6 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          게시글 스크래핑 및 Gemini AI 분석에는<br />
+          갤러리 규모에 따라 약 <strong style={{ color: "var(--text-primary)" }}>1~3분</strong>이 소요됩니다.
+        </p>
+        <div className="rounded-xl p-4 text-left space-y-2 border"
+          style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border-muted)" }}>
+          <div className="flex justify-between text-xs">
+            <span style={{ color: "var(--text-muted)" }}>요청 ID</span>
+            <span className="font-mono" style={{ color: "var(--text-secondary)" }}>{String(uuid).slice(0, 8)}...</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span style={{ color: "var(--text-muted)" }}>폴링</span>
+            <span style={{ color: "var(--text-secondary)" }}>{pollCount.current} / {MAX_POLLS}회</span>
           </div>
         </div>
+        {timedOut && (
+          <p className="mt-4 text-xs text-red-400">
+            분석 시간이 초과되었습니다 (10분). 페이지를 새로고침하거나 다시 요청해주세요.
+          </p>
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+
+  // ── COMPLETED ─────────────────────────────────────────────────────
+  const pos       = insights?.sentiment_summary?.positive ?? [];
+  const neg       = insights?.sentiment_summary?.negative ?? [];
+  const issues    = insights?.major_issues ?? [];
+  const keywords  = insights?.top_keywords ?? [];
+  const complaints = insights?.complaint_analysis ?? {};
 
   return (
-    <main className="min-h-screen bg-[#f8fafc]">
-      {/* Navbar */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <button 
-            onClick={() => router.push('/history')}
-            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 font-medium transition-colors"
-          >
-            <ArrowLeft size={20} />
-            목록으로
-          </button>
-          <div className="font-bold text-gray-800 hidden sm:block">
-            {report?.gameName || 'AI 분석 리포트'}
-          </div>
-          <div className="text-sm text-gray-500 font-mono">
-            {uuid?.slice(0,8)}
-          </div>
-        </div>
+    <main className="min-h-screen pb-20" style={{ backgroundColor: "var(--bg-base)" }}>
+
+      {/* 네비게이션 */}
+      <nav className="sticky top-0 z-10 flex items-center justify-between px-5 h-14 border-b backdrop-blur-md"
+        style={{ backgroundColor: "rgba(13,17,23,0.9)", borderColor: "var(--border)" }}>
+        <button onClick={() => router.push("/history")}
+          className="flex items-center gap-1.5 text-sm font-medium transition-colors"
+          style={{ color: "var(--text-secondary)" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "var(--text-primary)")}
+          onMouseLeave={e => (e.currentTarget.style.color = "var(--text-secondary)")}>
+          <ArrowLeft size={15} /> 목록
+        </button>
+        <span className="font-bold text-sm hidden sm:block" style={{ color: "var(--text-primary)" }}>
+          {report?.gameName || "AI 분석 리포트"}
+        </span>
+        <span className="font-mono text-xs" style={{ color: "var(--text-muted)" }}>
+          {String(uuid).slice(0, 8)}
+        </span>
       </nav>
 
-      {/* Header Profile */}
-      <header className="bg-white border-b border-gray-200 pt-10 pb-12 mb-8">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      {/* 헤더 */}
+      <header className="border-b py-10" style={{ borderColor: "var(--border)" }}>
+        <div className="max-w-5xl mx-auto px-5">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-1 rounded-md">
-                  분석 완료
+              <div className="flex items-center gap-2.5 mb-3">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border"
+                  style={{ backgroundColor: "rgba(34,197,94,0.1)", borderColor: "rgba(34,197,94,0.25)", color: "#86efac" }}>
+                  <CheckCircle2 size={10} /> 분석 완료
                 </span>
-                <span className="text-sm text-gray-500 flex items-center gap-1">
-                  <Calendar size={14} /> 
-                  {report?.completedAt ? new Date(report.completedAt).toLocaleString('ko-KR') : '-'}
+                <span className="flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                  <Calendar size={12} />
+                  {report?.completedAt ? new Date(report.completedAt).toLocaleString("ko-KR") : "-"}
                 </span>
               </div>
-              <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">
-                {report?.gameName || '게임명 확인 불가'}
+              <h1 className="text-3xl md:text-4xl font-black mb-1.5" style={{ color: "var(--text-primary)" }}>
+                {report?.gameName || "게임명 확인 불가"}
               </h1>
-              <p className="text-xl text-gray-600 font-medium">
-                {report?.galleryName || '갤러리명'}
+              <p className="text-base font-medium" style={{ color: "var(--text-secondary)" }}>
+                {report?.galleryName || "갤러리명"}
               </p>
             </div>
-            
-            {insights?.gallery_summary && (
-              <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-2xl max-w-sm">
-                <p className="text-sm font-bold text-indigo-900 mb-1">한줄 요약</p>
-                <p className="text-indigo-800 font-medium">&quot;{insights.gallery_summary}&quot;</p>
+
+            {/* 한줄 요약 */}
+            {insights?.critic_one_liner && (
+              <div className="rounded-2xl p-5 max-w-sm border"
+                style={{ backgroundColor: "rgba(99,102,241,0.06)", borderColor: "rgba(99,102,241,0.2)" }}>
+                <p className="text-xs font-semibold mb-1.5 text-indigo-400">AI 한줄 요약</p>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
+                  {insights.critic_one_liner}
+                </p>
               </div>
             )}
-          </div>
+          </motion.div>
+
+          {/* 키워드 태그 */}
+          {keywords.length > 0 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+              className="flex flex-wrap gap-2 mt-5">
+              <Tag size={13} style={{ color: "var(--text-muted)" }} className="self-center" />
+              {keywords.map((kw, i) => (
+                <span key={i} className="text-xs font-semibold px-2.5 py-1 rounded-full border"
+                  style={{ backgroundColor: "var(--bg-raised)", borderColor: "var(--border)", color: "var(--text-secondary)" }}>
+                  {kw}
+                </span>
+              ))}
+            </motion.div>
+          )}
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-4 pb-20 space-y-8">
-        
-        {/* Core Insights Grid */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Main Topics */}
-          <section className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
-            <h2 className="text-2xl font-bold flex items-center gap-2 mb-6 text-gray-900 border-b pb-4">
-              <MessageSquare className="text-blue-500" /> 핵심 여론 및 주요 주제
-            </h2>
-            <div className="space-y-4">
-              {insights?.key_topics ? insights.key_topics.map((topic: { topic: string, details: string }, idx: number) => (
-                <div key={idx} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                  <h3 className="font-bold text-lg text-gray-800 mb-1">{idx + 1}. {topic.topic}</h3>
-                  <p className="text-gray-600 text-sm">{topic.details}</p>
-                </div>
-              )) : (
-                <p className="text-gray-500">데이터를 분석할 수 없습니다.</p>
-              )}
-            </div>
-          </section>
+      <div className="max-w-5xl mx-auto px-5 py-8 space-y-6">
 
-          {/* Issues / Fire */}
-          <section className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
-            <h2 className="text-2xl font-bold flex items-center gap-2 mb-6 text-gray-900 border-b pb-4">
-              <Flame className="text-red-500" /> 불만 및 민심 (이슈)
-            </h2>
-            <div className="space-y-4">
-              {insights?.complaints ? insights.complaints.map((comp: { issue: string, severity: string, context: string, suggestion: string }, idx: number) => (
-                <div key={idx} className="bg-red-50 rounded-xl p-4 border border-red-100">
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className="font-bold text-lg text-red-900">{comp.issue}</h3>
-                    <span className="text-xs font-bold px-2 py-1 bg-red-100 text-red-800 rounded-lg">
-                      심각도: {comp.severity}
-                    </span>
-                  </div>
-                  <p className="text-red-800/80 text-sm mb-2">{comp.context}</p>
-                  <div className="bg-white/60 p-2 rounded-lg text-sm text-red-900/90 font-medium">
-                    💡 제언: {comp.suggestion}
-                  </div>
-                </div>
-              )) : (
-                <p className="text-gray-500">분석된 불만 사항이 없습니다.</p>
-              )}
-            </div>
-          </section>
+        {/* 긍정 / 부정 여론 */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* 긍정 여론 */}
+          <Section icon={<TrendingUp size={15} className="text-emerald-400" />} title="긍정 여론">
+            {pos.length ? pos.map((item, i) => (
+              <SentimentCard key={i} item={item} tone="positive" />
+            )) : <Empty text="수집된 긍정 여론이 없습니다." />}
+          </Section>
+
+          {/* 부정 여론 */}
+          <Section icon={<TrendingDown size={15} className="text-red-400" />} title="부정 여론">
+            {neg.length ? neg.map((item, i) => (
+              <SentimentCard key={i} item={item} tone="negative" />
+            )) : <Empty text="수집된 부정 여론이 없습니다." />}
+          </Section>
         </div>
 
-        {/* Actionable Advice */}
-        <section className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-8 shadow-lg text-white">
-          <h2 className="text-2xl font-bold flex items-center gap-2 mb-6 border-b border-gray-700 pb-4">
-            <CheckCircle2 className="text-green-400" /> 운영진/개발자를 위한 액션 플랜
-          </h2>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {insights?.action_plans ? insights.action_plans.map((plan: string, idx: number) => (
-              <div key={idx} className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-                <p className="font-medium text-blue-100 leading-relaxed">
-                  <span className="text-blue-400 font-black mr-2">{idx + 1}.</span>
-                  {plan}
-                </p>
-              </div>
-            )) : (
-              <p className="text-gray-400">제공된 액션 플랜이 없습니다.</p>
-            )}
-          </div>
-        </section>
+        {/* 주요 이슈 */}
+        {issues.length > 0 && (
+          <Section icon={<Flame size={15} className="text-orange-400" />} title="주요 이슈 리스트">
+            <div className="space-y-3">
+              {issues.map((issue, i) => (
+                <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.06 }}
+                  className="p-4 rounded-xl border"
+                  style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)" }}>
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
+                      {issue.issue_title}
+                    </span>
+                    {issue.ref_url && (
+                      <a href={issue.ref_url} target="_blank" rel="noopener noreferrer"
+                        className="shrink-0 text-indigo-400 hover:text-indigo-300 transition-colors">
+                        <ExternalLink size={13} />
+                      </a>
+                    )}
+                  </div>
+                  <p className="text-xs mb-3 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                    {issue.issue_detail}
+                  </p>
+                  <div>
+                    <p className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>언급 빈도</p>
+                    <MentionBar score={issue.mention_score ?? 0} />
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </Section>
+        )}
 
+        {/* 불만 카테고리 */}
+        {Object.keys(complaints).length > 0 && (
+          <Section icon={<BarChart2 size={15} className="text-violet-400" />} title="불만 카테고리 분석">
+            <div className="grid sm:grid-cols-2 gap-3">
+              {(Object.entries(complaints) as [string, ComplaintCategory][]).map(([key, cat], i) => {
+                const meta  = COMPLAINT_META[key] ?? { label: key, emoji: "📌" };
+                const sty   = scoreColor(cat.score ?? 0, 10);
+                return (
+                  <motion.div key={key} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.07 }}
+                    className="p-4 rounded-xl border"
+                    style={{ backgroundColor: sty.bg, borderColor: sty.border }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                        {meta.emoji} {meta.label}
+                      </span>
+                      <span className="text-xs font-black px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: sty.bg, color: sty.text, border: `1px solid ${sty.border}` }}>
+                        {cat.score ?? 0}/10
+                      </span>
+                    </div>
+                    {cat.summary && (
+                      <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--text-secondary)" }}>
+                        {cat.summary}
+                      </p>
+                    )}
+                    {cat.example && (
+                      <div className="flex items-start gap-1.5">
+                        <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>대표 발언</span>
+                        <p className="text-xs italic leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                          &ldquo;{cat.example}&rdquo;
+                          {cat.example_url && (
+                            <a href={cat.example_url} target="_blank" rel="noopener noreferrer"
+                              className="inline-block ml-1 text-indigo-400 hover:text-indigo-300">
+                              <ExternalLink size={10} />
+                            </a>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+          </Section>
+        )}
+
+        {/* 하단 메타 */}
+        <div className="flex flex-wrap gap-4 text-xs px-5 py-4 rounded-xl border"
+          style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-muted)" }}>
+          <span className="flex items-center gap-1">
+            <Clock size={11} />
+            요청: {report?.requestedAt ? new Date(report.requestedAt).toLocaleString("ko-KR") : "-"}
+          </span>
+          <span className="flex items-center gap-1">
+            <CheckCircle2 size={11} />
+            완료: {report?.completedAt ? new Date(report.completedAt).toLocaleString("ko-KR") : "-"}
+          </span>
+          <span className="font-mono">UUID: {String(uuid)}</span>
+        </div>
       </div>
     </main>
+  );
+}
+
+// ── 서브 컴포넌트 ──────────────────────────────────────────────────
+function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+  return (
+    <AnimatePresence>
+      <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+        className="rounded-2xl border" style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}>
+        <div className="flex items-center gap-2 px-6 py-4 border-b" style={{ borderColor: "var(--border)" }}>
+          {icon}
+          <h2 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{title}</h2>
+        </div>
+        <div className="p-4">{children}</div>
+      </motion.section>
+    </AnimatePresence>
+  );
+}
+
+function SentimentCard({ item, tone }: { item: SentimentItem; tone: "positive" | "negative" }) {
+  const isPos = tone === "positive";
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-xl border mb-2 last:mb-0"
+      style={{
+        backgroundColor: isPos ? "rgba(34,197,94,0.05)" : "rgba(239,68,68,0.05)",
+        borderColor:      isPos ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
+      }}>
+      <span className="text-base shrink-0 mt-0.5">{isPos ? "🟢" : "🔴"}</span>
+      <div className="min-w-0">
+        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          {item.summary}
+        </p>
+        {item.ref_url && (
+          <a href={item.ref_url} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs mt-1.5 text-indigo-400 hover:text-indigo-300 transition-colors">
+            원문 보기 <ExternalLink size={10} />
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <p className="py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>{text}</p>
   );
 }

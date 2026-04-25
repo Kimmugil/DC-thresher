@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { History, ArrowLeft, ExternalLink, Calendar, Gamepad2, FileText } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  History, ArrowLeft, ChevronRight, Calendar,
+  Gamepad2, FileText, Loader2, AlertCircle, Plus,
+} from "lucide-react";
 import axios from "axios";
 import Link from "next/link";
 
@@ -14,105 +18,181 @@ interface Report {
   status: "PENDING" | "COMPLETED" | "FAILED";
 }
 
+const STATUS_CONFIG = {
+  COMPLETED: { label: "완료",    bg: "rgba(34,197,94,0.1)",  border: "rgba(34,197,94,0.25)",  text: "#86efac" },
+  PENDING:   { label: "분석 중", bg: "rgba(99,102,241,0.1)", border: "rgba(99,102,241,0.25)", text: "#a5b4fc" },
+  FAILED:    { label: "실패",    bg: "rgba(239,68,68,0.1)",  border: "rgba(239,68,68,0.25)",  text: "#fca5a5" },
+};
+
+function StatusBadge({ status }: { status: Report["status"] }) {
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.PENDING;
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border"
+      style={{ backgroundColor: cfg.bg, borderColor: cfg.border, color: cfg.text }}
+    >
+      {status === "PENDING" && <Loader2 size={10} className="animate-spin" />}
+      {cfg.label}
+    </span>
+  );
+}
+
 export default function HistoryPage() {
   const router = useRouter();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError]     = useState("");
 
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        // This endpoint will be implemented later to fetch from Google Sheets
         const res = await axios.get("/api/history");
         setReports(res.data.reports);
-      } catch (err) {
-        console.error(err);
-        // Fallback for development/UI design until API is ready
-        setError("리포트 목록을 불러오지 못했습니다. 임시 데이터를 표시합니다.");
-        setReports([
-          { uuid: "123e4567-e89b-12d3-a456-426614174000", gameName: "로스트아크", galleryName: "로스트아크 갤러리", requestedAt: "2024-05-20T10:30:00Z", status: "COMPLETED" },
-          { uuid: "223e4567-e89b-12d3-a456-426614174001", gameName: "메이플스토리", galleryName: "메이플스토리 갤러리", requestedAt: "2024-05-19T14:20:00Z", status: "COMPLETED" },
-          { uuid: "323e4567-e89b-12d3-a456-426614174002", gameName: "명조", galleryName: "명조 마이너 갤러리", requestedAt: "2024-05-18T09:15:00Z", status: "PENDING" },
-        ]);
+      } catch (err: unknown) {
+        const axiosError = err as { response?: { data?: { message?: string } } };
+        setError(axiosError.response?.data?.message || "리포트 목록을 불러오지 못했습니다.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchHistory();
   }, []);
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto">
-        <button 
-          onClick={() => router.push('/')}
-          className="flex items-center gap-2 text-gray-500 hover:text-blue-600 font-medium mb-8 transition-colors"
-        >
-          <ArrowLeft size={20} />
-          새로운 분석 요청하기
-        </button>
+    <main className="min-h-screen" style={{ backgroundColor: "var(--bg-base)" }}>
 
-        <div className="flex items-end justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-              <History className="text-blue-600" /> 분석 리포트 보관함
-            </h1>
-            <p className="text-gray-600">지금까지 발행된 DC-Thresher AI 리포트 목록입니다.</p>
-          </div>
+      {/* 헤더 */}
+      <header
+        className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b backdrop-blur-md"
+        style={{ backgroundColor: "rgba(13,17,23,0.85)", borderColor: "var(--border)" }}
+      >
+        <button
+          onClick={() => router.push("/")}
+          className="flex items-center gap-2 text-sm font-medium transition-colors"
+          style={{ color: "var(--text-secondary)" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "var(--text-primary)")}
+          onMouseLeave={e => (e.currentTarget.style.color = "var(--text-secondary)")}
+        >
+          <ArrowLeft size={16} />
+          새 분석 요청
+        </button>
+        <div className="flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+          <History size={16} className="text-indigo-400" />
+          <span className="font-bold text-sm">분석 리포트 보관함</span>
+        </div>
+        <div className="w-24" />
+      </header>
+
+      <div className="max-w-4xl mx-auto px-4 py-10">
+
+        {/* 타이틀 */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-black mb-1" style={{ color: "var(--text-primary)" }}>
+            분석 리포트 보관함
+          </h1>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            지금까지 발행된 DC-Thresher AI 리포트 전체 목록입니다.
+          </p>
         </div>
 
+        {/* 에러 배너 */}
         {error && (
-          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl mb-6">
+          <div
+            className="flex items-center gap-2.5 text-sm px-4 py-3 rounded-xl border mb-6"
+            style={{ backgroundColor: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.25)", color: "#fca5a5" }}
+          >
+            <AlertCircle size={15} className="shrink-0" />
             {error}
           </div>
         )}
 
+        {/* 로딩 스켈레톤 */}
         {loading ? (
-          <div className="grid gap-4">
+          <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 animate-pulse flex h-32" />
+              <div
+                key={i}
+                className="h-20 rounded-2xl animate-pulse border"
+                style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}
+              />
             ))}
           </div>
         ) : reports.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-dashed border-gray-300 p-16 text-center">
-            <FileText className="mx-auto text-gray-300 mb-4" size={48} />
-            <h3 className="text-xl font-bold text-gray-700 mb-2">아직 발행된 리포트가 없습니다</h3>
-            <p className="text-gray-500">첫 번째 갤러리 분석을 요청해보세요.</p>
-          </div>
+          /* 빈 상태 */
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-24 rounded-2xl border border-dashed"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <FileText size={40} className="mx-auto mb-4" style={{ color: "var(--text-muted)" }} />
+            <h3 className="text-lg font-bold mb-2" style={{ color: "var(--text-secondary)" }}>
+              아직 발행된 리포트가 없습니다
+            </h3>
+            <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+              첫 번째 갤러리 분석을 요청해보세요.
+            </p>
+            <button
+              onClick={() => router.push("/")}
+              className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl transition-all"
+              style={{ backgroundColor: "var(--bg-raised)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+            >
+              <Plus size={15} />
+              새 분석 시작
+            </button>
+          </motion.div>
         ) : (
-          <div className="grid gap-4">
-            {reports.map((report) => (
-              <Link 
-                href={`/history/${report.uuid}`} 
+          /* 리포트 목록 */
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-2"
+          >
+            {reports.map((report, idx) => (
+              <motion.div
                 key={report.uuid}
-                className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.04 }}
               >
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wider">
-                      {report.status}
-                    </span>
-                    <span className="flex items-center gap-1.5 text-sm text-gray-500 font-medium">
-                      <Calendar size={14} /> 
-                      {new Date(report.requestedAt).toLocaleString('ko-KR')}
-                    </span>
+                <Link
+                  href={`/history/${report.uuid}`}
+                  className="group flex items-center justify-between px-5 py-4 rounded-2xl border transition-all"
+                  style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(99,102,241,0.4)";
+                    (e.currentTarget as HTMLElement).style.backgroundColor = "var(--bg-raised)";
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+                    (e.currentTarget as HTMLElement).style.backgroundColor = "var(--bg-surface)";
+                  }}
+                >
+                  <div className="flex items-center gap-4 min-w-0">
+                    <StatusBadge status={report.status} />
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm truncate transition-colors group-hover:text-indigo-400" style={{ color: "var(--text-primary)" }}>
+                        {report.gameName || "게임명 수집 중..."}
+                      </p>
+                      <p className="text-xs flex items-center gap-1 mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>
+                        <Gamepad2 size={11} />
+                        {report.galleryName || "갤러리명 수집 중..."}
+                      </p>
+                    </div>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 group-hover:text-blue-600 transition-colors">
-                    {report.gameName || '알 수 없는 게임'}
-                  </h3>
-                  <p className="text-gray-500 text-sm flex items-center gap-1 mt-1">
-                    <Gamepad2 size={14} /> {report.galleryName || '갤러리명 수집중...'}
-                  </p>
-                </div>
-                
-                <div className="flex items-center gap-2 text-blue-600 font-semibold bg-blue-50 px-4 py-2 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors w-full sm:w-auto justify-center">
-                  리포트 보기 <ExternalLink size={16} />
-                </div>
-              </Link>
+                  <div className="flex items-center gap-4 shrink-0 ml-4">
+                    <span className="hidden sm:flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                      <Calendar size={11} />
+                      {report.requestedAt
+                        ? new Date(report.requestedAt).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+                        : "-"}
+                    </span>
+                    <ChevronRight size={16} className="transition-transform group-hover:translate-x-1" style={{ color: "var(--text-muted)" }} />
+                  </div>
+                </Link>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
     </main>

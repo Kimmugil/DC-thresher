@@ -9,11 +9,15 @@ on:
       uuid:
         description: 'UUID for tracking the report'
         required: true
+      requested_at:
+        description: 'ISO timestamp when the analysis was requested (from frontend)'
+        required: false
+        default: ''
 
 jobs:
   analyze_and_save:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -44,4 +48,4 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           cd python_scripts
-          python save_to_sheets.py "${{ github.event.inputs.uuid }}"
+          python save_to_sheets.py "${{ github.event.inputs.uuid }}" "${{ github.event.inputs.requested_at }}"

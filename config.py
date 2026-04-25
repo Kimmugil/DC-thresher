@@ -18,17 +18,11 @@ TICKER_INTERVAL = 2.5
 # API 키
 if HAS_STREAMLIT:
     try:
-        GEMINI_API_KEY     = st.secrets[ENV]["GEMINI_API_KEY"]
-        NOTION_TOKEN       = st.secrets[ENV]["NOTION_TOKEN"]
-        NOTION_DATABASE_ID = st.secrets[ENV]["NOTION_DATABASE_ID"]
+        GEMINI_API_KEY = st.secrets[ENV]["GEMINI_API_KEY"]
     except Exception:
-        GEMINI_API_KEY     = os.environ.get("GEMINI_API_KEY", "")
-        NOTION_TOKEN       = os.environ.get("NOTION_TOKEN", "")
-        NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID", "")
+        GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 else:
-    GEMINI_API_KEY     = os.environ.get("GEMINI_API_KEY", "")
-    NOTION_TOKEN       = os.environ.get("NOTION_TOKEN", "")
-    NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID", "")
+    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 # ─────────────────────────────────────────────
 # 스크래핑 설정
@@ -131,7 +125,7 @@ ACTION_PRIORITY = {
     "note":    {"label": "참고",          "emoji": "📝", "color": "#2980b9"},
 }
 
-NOTION_SECTION_ORDER = [
+SECTION_ORDER = [
     "bot_info", "ai_one_liner", "gallery_profile", "sentiment_gauge",
     "issue_timeline", "complaint_categories", "churn_signals",
     "segment_analysis", "pm_checklist", "patch_timeline", "raw_data",

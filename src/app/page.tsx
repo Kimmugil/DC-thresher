@@ -2,14 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, History, ArrowRight, Loader2, Info } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, History, ArrowRight, Loader2, AlertCircle, Sparkles, Database, Bot } from "lucide-react";
 import axios from "axios";
+
+const DC_GALLERY_URL_PATTERN =
+  /^https?:\/\/gall\.dcinside\.com\/(mgallery\/|mini\/)?board\/(lists|view)\/?\?[^"'<>]*[?&]id=[a-zA-Z0-9_]+/;
+
+const STEPS = [
+  { icon: Search,   label: "URL 입력",  desc: "갤러리 주소 붙여넣기" },
+  { icon: Database, label: "자동 수집", desc: "최신 게시글 스크래핑" },
+  { icon: Bot,      label: "AI 분석",   desc: "Gemini 여론 심층 분석" },
+  { icon: Sparkles, label: "리포트",    desc: "결과 즉시 열람 가능" },
+];
 
 export default function Home() {
   const router = useRouter();
-  const [url, setUrl] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [url, setUrl]           = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
   const [statusMsg, setStatusMsg] = useState("");
 
   const handleAnalyze = async (e: React.FormEvent) => {
@@ -17,135 +28,195 @@ export default function Home() {
     setError("");
     setStatusMsg("");
 
-    if (!url.trim()) {
+    const trimmed = url.trim();
+    if (!trimmed) {
       setError("디시인사이드 갤러리 URL을 입력해주세요.");
       return;
     }
-    
-    if (!url.includes("gall.dcinside.com")) {
-      setError("올바른 디시인사이드 갤러리 URL이 아닙니다.");
+    if (!DC_GALLERY_URL_PATTERN.test(trimmed)) {
+      setError("올바른 디시인사이드 갤러리 URL이 아닙니다. 주소창 URL을 그대로 붙여넣어 주세요.");
       return;
     }
 
     try {
       setLoading(true);
-      setStatusMsg("서버에 분석 요청을 보내는 중...");
-      
-      const res = await axios.post("/api/analyze", { url });
-      
-      setStatusMsg("요청 성공! 백그라운드 분석이 시작되었습니다.");
-      
-      // Delay briefly to show success, then route to the history item (or a pending view)
-      setTimeout(() => {
-        router.push(`/history/${res.data.uuid}`);
-      }, 1500);
-
+      setStatusMsg("분석 요청을 전송하는 중...");
+      const res = await axios.post("/api/analyze", { url: trimmed });
+      setStatusMsg("요청 완료! 분석 페이지로 이동합니다...");
+      setTimeout(() => router.push(`/history/${res.data.uuid}`), 1200);
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || "분석 요청에 실패했습니다. 관리자에게 문의하세요.");
+      setError(axiosError.response?.data?.message || "분석 요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex flex-col items-center justify-center p-4">
-      <div className="max-w-3xl w-full">
-        {/* Header Section */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-blue-600 text-white shadow-xl mb-6">
-            <Search size={40} />
-          </div>
-          <h1 className="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">
-            DC-Thresher <span className="text-blue-600">AI Report</span>
-          </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            디시인사이드 갤러리 URL을 입력하면, 최근 게시글을 스크래핑하여 Gemini AI가 갤러리의 여론과 주요 키워드를 심층 분석한 리포트를 발행해 드립니다.
-          </p>
-        </div>
+    <main className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg-base)" }}>
 
-        {/* Action Card */}
-        <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-10 border border-gray-100">
-          <form onSubmit={handleAnalyze} className="space-y-6">
-            <div>
-              <label htmlFor="url" className="block text-sm font-semibold text-gray-700 mb-2">
-                갤러리 URL 입력
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="url"
-                  id="url"
-                  className="block w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl text-gray-900 focus:ring-0 focus:border-blue-500 transition-colors bg-gray-50 text-lg outline-none"
-                  placeholder="https://gall.dcinside.com/mgallery/board/lists?id=example"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-              </div>
-              <p className="mt-3 text-sm text-gray-500 flex items-center gap-1.5">
-                <Info size={16} /> 
-                마이너, 정식, 미니 갤러리 모두 지원합니다.
-              </p>
+      {/* 상단 헤더 */}
+      <header className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border)" }}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <Search size={14} className="text-white" />
+          </div>
+          <span className="font-bold text-sm tracking-wide" style={{ color: "var(--text-primary)" }}>
+            DC-Thresher
+          </span>
+        </div>
+        <button
+          onClick={() => router.push("/history")}
+          className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+          style={{ color: "var(--text-secondary)" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "var(--text-primary)")}
+          onMouseLeave={e => (e.currentTarget.style.color = "var(--text-secondary)")}
+        >
+          <History size={15} />
+          보관함
+        </button>
+      </header>
+
+      {/* 메인 컨텐츠 */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-2xl"
+        >
+          {/* 타이틀 */}
+          <div className="text-center mb-10">
+            <div
+              className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full mb-6 border"
+              style={{ backgroundColor: "rgba(99,102,241,0.1)", borderColor: "rgba(99,102,241,0.3)", color: "#818cf8" }}
+            >
+              <Sparkles size={12} />
+              Powered by Gemini 2.5 Flash
             </div>
-
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm border border-red-100 font-medium">
-                {error}
-              </div>
-            )}
-
-            {statusMsg && !error && (
-              <div className="bg-blue-50 text-blue-700 p-4 rounded-xl text-sm border border-blue-100 font-medium flex items-center gap-2">
-                {loading && <Loader2 className="animate-spin" size={18} />}
-                {statusMsg}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 px-8 rounded-2xl font-bold text-lg transition-all shadow-lg hover:shadow-xl disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin" /> 분석 준비 중...
-                </>
-              ) : (
-                <>
-                  리포트 발행 시작하기 <ArrowRight />
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-8 pt-8 border-t border-gray-100 text-center">
-            <button 
-              onClick={() => router.push('/history')}
-              className="inline-flex items-center gap-2 text-gray-600 hover:text-blue-600 font-medium transition-colors"
-            >
-              <History size={18} />
-              과거 분석 리포트 열람하기
-            </button>
+            <h1 className="text-4xl md:text-5xl font-black mb-4 leading-tight" style={{ color: "var(--text-primary)" }}>
+              갤러리 민심,{" "}
+              <span className="text-indigo-400">AI가 읽다</span>
+            </h1>
+            <p className="text-base md:text-lg leading-relaxed max-w-lg mx-auto" style={{ color: "var(--text-secondary)" }}>
+              DC Inside 갤러리 URL 하나로 게시글을 자동 수집하고,
+              Gemini AI가 여론·불만·이슈를 심층 분석한 리포트를 발행합니다.
+            </p>
           </div>
-        </div>
-        
-        {/* Notice Section */}
-        <div className="mt-12 space-y-4 max-w-2xl mx-auto">
-          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-200">
-            <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-              <span className="bg-blue-100 text-blue-700 p-1.5 rounded-lg text-xs">안내</span>
-              알아두세요
-            </h3>
-            <ul className="text-sm text-gray-600 space-y-2 list-disc pl-5">
-              <li>실시간 스크래핑 방식으로 동작하므로 갤러리 글 리젠 속도에 따라 <span className="font-bold">분석에 1~3분 가량 소요</span>될 수 있습니다.</li>
-              <li>생성된 리포트는 누구나 열람할 수 있도록 고유 링크가 제공되며 구글 스프레드시트에 영구 저장됩니다.</li>
-            </ul>
-          </div>
-        </div>
 
+          {/* 입력 카드 */}
+          <div
+            className="rounded-2xl p-6 md:p-8 border mb-6"
+            style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}
+          >
+            <form onSubmit={handleAnalyze} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="url"
+                  className="block text-sm font-semibold mb-2"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  갤러리 URL
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Search size={16} style={{ color: "var(--text-muted)" }} />
+                  </div>
+                  <input
+                    type="url"
+                    id="url"
+                    className="w-full pl-11 pr-4 py-3.5 rounded-xl text-sm outline-none transition-all border"
+                    style={{
+                      backgroundColor: "var(--bg-base)",
+                      borderColor: "var(--border)",
+                      color: "var(--text-primary)",
+                    }}
+                    placeholder="https://gall.dcinside.com/mgallery/board/lists?id=..."
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    disabled={loading}
+                    onFocus={e => (e.currentTarget.style.borderColor = "var(--accent)")}
+                    onBlur={e => (e.currentTarget.style.borderColor = "var(--border)")}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* 에러 / 상태 메시지 */}
+              <AnimatePresence mode="wait">
+                {error && (
+                  <motion.div
+                    key="error"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-start gap-2 text-sm px-4 py-3 rounded-xl border"
+                    style={{ backgroundColor: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.25)", color: "#fca5a5" }}
+                  >
+                    <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                    {error}
+                  </motion.div>
+                )}
+                {statusMsg && !error && (
+                  <motion.div
+                    key="status"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl border"
+                    style={{ backgroundColor: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.25)", color: "#a5b4fc" }}
+                  >
+                    {loading && <Loader2 size={14} className="animate-spin shrink-0" />}
+                    {statusMsg}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-6 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                style={{
+                  background: loading ? "var(--bg-raised)" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                  color: loading ? "var(--text-muted)" : "#fff",
+                  cursor: loading ? "not-allowed" : "pointer",
+                }}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    분석 준비 중...
+                  </>
+                ) : (
+                  <>
+                    리포트 발행 시작하기
+                    <ArrowRight size={16} />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+
+          {/* 프로세스 스텝 */}
+          <div className="grid grid-cols-4 gap-2">
+            {STEPS.map((step, i) => (
+              <div key={i} className="text-center">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center mx-auto mb-2 border"
+                  style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}
+                >
+                  <step.icon size={16} style={{ color: "var(--accent-hover)" }} />
+                </div>
+                <p className="text-xs font-semibold mb-0.5" style={{ color: "var(--text-primary)" }}>{step.label}</p>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{step.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* 안내 */}
+          <p className="text-center text-xs mt-6" style={{ color: "var(--text-muted)" }}>
+            마이너·정식·미니 갤러리 지원 &nbsp;·&nbsp; 분석 소요 약 1~3분 &nbsp;·&nbsp; 리포트는 고유 링크로 영구 보관
+          </p>
+        </motion.div>
       </div>
     </main>
   );
