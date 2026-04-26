@@ -108,9 +108,32 @@ def _gname(soup):
 def _soup(sess, url, params):
     try:
         r = sess.get(url, params=params, headers=WEB_HEADERS, timeout=REQUEST_TIMEOUT)
+        print(f"[DEBUG] GET {url} params={params} → HTTP {r.status_code}, {len(r.text)} chars")
+        if r.status_code != 200:
+            print(f"[DEBUG] Non-200 response body (first 300 chars): {r.text[:300]}")
+            return None
         return BeautifulSoup(r.text, "html.parser")
-    except Exception:
+    except Exception as e:
+        print(f"[DEBUG] _soup exception: {e}")
         return None
+
+
+_ROW_SELECTORS = [
+    "tr.ub-content.us-post",   # 일반 (기존)
+    "tr.ub-content",           # us-post 클래스 없는 경우
+    "tr[data-type='post']",    # 데이터 속성 방식
+]
+
+def _select_rows(soup):
+    """여러 셀렉터를 순서대로 시도해 게시글 tr 목록 반환."""
+    for sel in _ROW_SELECTORS:
+        trs = soup.select(sel)
+        if trs:
+            print(f"[DEBUG] 셀렉터 '{sel}' → {len(trs)}개 행 매칭")
+            return trs
+    print("[DEBUG] 모든 셀렉터 실패 — 페이지 구조 샘플:")
+    print(soup.prettify()[:800])
+    return []
 
 
 def _skip(row):
@@ -246,7 +269,7 @@ def diagnose_gallery(url, progress_cb=None):
             if done: break
             s = _soup(sess, lu, {"id": gid, "page": page})
             if not s: break
-            trs = s.select("tr.ub-content.us-post")
+            trs = _select_rows(s)
             if not trs: break
             padded = 0
             for tr in trs:
@@ -320,7 +343,7 @@ def run_dc_scraper(url, days_limit, progress_cb=None):
             if done: break
             s = _soup(sess, lu, {"id": gid, "page": page})
             if not s: break
-            trs = s.select("tr.ub-content.us-post")
+            trs = _select_rows(s)
             if not trs: break
             padded = 0
             for tr in trs:
