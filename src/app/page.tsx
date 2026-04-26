@@ -5,23 +5,28 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, History, ArrowRight, Loader2, AlertCircle, Sparkles, Database, Bot } from "lucide-react";
 import axios from "axios";
+import { useTexts } from "@/components/UITextsProvider";
 
 const DC_GALLERY_URL_PATTERN =
   /^https?:\/\/gall\.dcinside\.com\/(mgallery\/|mini\/)?board\/(lists|view)\/?\?[^"'<>]*[?&]id=[a-zA-Z0-9_]+/;
 
-const STEPS = [
-  { icon: Search,   label: "URL 입력",  desc: "갤러리 주소 붙여넣기" },
-  { icon: Database, label: "자동 수집", desc: "최신 게시글 스크래핑" },
-  { icon: Bot,      label: "AI 분석",   desc: "Gemini 여론 심층 분석" },
-  { icon: Sparkles, label: "리포트",    desc: "결과 즉시 열람 가능" },
-];
+const STEP_ICONS = [Search, Database, Bot, Sparkles];
 
 export default function Home() {
   const router = useRouter();
-  const [url, setUrl]           = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState("");
+  const t = useTexts();
+
+  const [url, setUrl]             = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState("");
   const [statusMsg, setStatusMsg] = useState("");
+
+  const STEPS = [
+    { icon: Search,   label: t["home.step1_label"], desc: t["home.step1_desc"] },
+    { icon: Database, label: t["home.step2_label"], desc: t["home.step2_desc"] },
+    { icon: Bot,      label: t["home.step3_label"], desc: t["home.step3_desc"] },
+    { icon: Sparkles, label: t["home.step4_label"], desc: t["home.step4_desc"] },
+  ];
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,23 +35,23 @@ export default function Home() {
 
     const trimmed = url.trim();
     if (!trimmed) {
-      setError("디시인사이드 갤러리 URL을 입력해주세요.");
+      setError(t["home.error_empty_url"]);
       return;
     }
     if (!DC_GALLERY_URL_PATTERN.test(trimmed)) {
-      setError("올바른 디시인사이드 갤러리 URL이 아닙니다. 주소창 URL을 그대로 붙여넣어 주세요.");
+      setError(t["home.error_invalid_url"]);
       return;
     }
 
     try {
       setLoading(true);
-      setStatusMsg("분석 요청을 전송하는 중...");
+      setStatusMsg(t["home.status_sending"]);
       const res = await axios.post("/api/analyze", { url: trimmed });
-      setStatusMsg("요청 완료! 분석 페이지로 이동합니다...");
+      setStatusMsg(t["home.status_redirecting"]);
       setTimeout(() => router.push(`/history/${res.data.uuid}`), 1200);
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || "분석 요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      setError(axiosError.response?.data?.message || t["home.error_generic"]);
       setLoading(false);
     }
   };
@@ -72,7 +77,7 @@ export default function Home() {
           onMouseLeave={e => (e.currentTarget.style.color = "var(--text-secondary)")}
         >
           <History size={15} />
-          보관함
+          {t["home.nav_history"]}
         </button>
       </header>
 
@@ -91,15 +96,14 @@ export default function Home() {
               style={{ backgroundColor: "rgba(99,102,241,0.1)", borderColor: "rgba(99,102,241,0.3)", color: "#818cf8" }}
             >
               <Sparkles size={12} />
-              Powered by Gemini 2.5 Flash
+              {t["home.badge"]}
             </div>
             <h1 className="text-4xl md:text-5xl font-black mb-4 leading-tight" style={{ color: "var(--text-primary)" }}>
-              갤러리 민심,{" "}
-              <span className="text-indigo-400">AI가 읽다</span>
+              {t["home.title_line1"]}{" "}
+              <span className="text-indigo-400">{t["home.title_accent"]}</span>
             </h1>
             <p className="text-base md:text-lg leading-relaxed max-w-lg mx-auto" style={{ color: "var(--text-secondary)" }}>
-              DC Inside 갤러리 URL 하나로 게시글을 자동 수집하고,
-              Gemini AI가 여론·불만·이슈를 심층 분석한 리포트를 발행합니다.
+              {t["home.subtitle"]}
             </p>
           </div>
 
@@ -115,7 +119,7 @@ export default function Home() {
                   className="block text-sm font-semibold mb-2"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  갤러리 URL
+                  {t["home.url_label"]}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -130,7 +134,7 @@ export default function Home() {
                       borderColor: "var(--border)",
                       color: "var(--text-primary)",
                     }}
-                    placeholder="https://gall.dcinside.com/mgallery/board/lists?id=..."
+                    placeholder={t["home.url_placeholder"]}
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     disabled={loading}
@@ -184,11 +188,11 @@ export default function Home() {
                 {loading ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    분석 준비 중...
+                    {t["home.submit_loading"]}
                   </>
                 ) : (
                   <>
-                    리포트 발행 시작하기
+                    {t["home.submit_btn"]}
                     <ArrowRight size={16} />
                   </>
                 )}
@@ -198,23 +202,26 @@ export default function Home() {
 
           {/* 프로세스 스텝 */}
           <div className="grid grid-cols-4 gap-2">
-            {STEPS.map((step, i) => (
-              <div key={i} className="text-center">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center mx-auto mb-2 border"
-                  style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}
-                >
-                  <step.icon size={16} style={{ color: "var(--accent-hover)" }} />
+            {STEPS.map((step, i) => {
+              const Icon = STEP_ICONS[i];
+              return (
+                <div key={i} className="text-center">
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center mx-auto mb-2 border"
+                    style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}
+                  >
+                    <Icon size={16} style={{ color: "var(--accent-hover)" }} />
+                  </div>
+                  <p className="text-xs font-semibold mb-0.5" style={{ color: "var(--text-primary)" }}>{step.label}</p>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{step.desc}</p>
                 </div>
-                <p className="text-xs font-semibold mb-0.5" style={{ color: "var(--text-primary)" }}>{step.label}</p>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{step.desc}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* 안내 */}
           <p className="text-center text-xs mt-6" style={{ color: "var(--text-muted)" }}>
-            마이너·정식·미니 갤러리 지원 &nbsp;·&nbsp; 분석 소요 약 1~3분 &nbsp;·&nbsp; 리포트는 고유 링크로 영구 보관
+            {t["home.footer_note"]}
           </p>
         </motion.div>
       </div>

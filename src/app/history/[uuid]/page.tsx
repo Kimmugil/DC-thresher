@@ -9,6 +9,7 @@ import {
   ExternalLink, Tag, Flame, BarChart2,
 } from "lucide-react";
 import axios from "axios";
+import { useTexts } from "@/components/UITextsProvider";
 
 // ── Gemini 실제 출력 타입 ─────────────────────────────────────────
 interface SentimentItem { summary: string; ref_url: string }
@@ -39,7 +40,6 @@ interface AiInsights {
     payment?:   ComplaintCategory;
     content?:   ComplaintCategory;
   };
-  // save_to_sheets.py 가 추가하는 메타
   game_name?:    string;
   gallery_name?: string;
 }
@@ -58,14 +58,6 @@ interface ReportData {
 const MAX_POLLS     = 60;
 const POLL_INTERVAL = 10_000;
 
-const COMPLAINT_META: Record<string, { label: string; emoji: string }> = {
-  balance:   { label: "밸런스/게임성",   emoji: "⚖️"  },
-  operation: { label: "운영/소통",        emoji: "📢"  },
-  bug:       { label: "버그/최적화",      emoji: "🐛"  },
-  payment:   { label: "과금/BM",          emoji: "💳"  },
-  content:   { label: "콘텐츠/업데이트",  emoji: "🎮"  },
-};
-
 // ── 헬퍼 ──────────────────────────────────────────────────────────
 function scoreColor(score: number, max = 10) {
   const ratio = score / max;
@@ -75,7 +67,7 @@ function scoreColor(score: number, max = 10) {
 }
 
 function MentionBar({ score }: { score: number }) {
-  const pct = Math.min(100, Math.max(0, score));
+  const pct   = Math.min(100, Math.max(0, score));
   const color = pct >= 60 ? "#f87171" : pct >= 30 ? "#fbbf24" : "#818cf8";
   return (
     <div className="flex items-center gap-2">
@@ -97,6 +89,7 @@ function MentionBar({ score }: { score: number }) {
 export default function ReportPage() {
   const { uuid }  = useParams();
   const router    = useRouter();
+  const t         = useTexts();
   const pollCount = useRef(0);
 
   const [report,   setReport]   = useState<ReportData | null>(null);
@@ -104,6 +97,15 @@ export default function ReportPage() {
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState("");
   const [timedOut, setTimedOut] = useState(false);
+
+  // 불만 카테고리 레이블 (텍스트 CMS에서 읽기)
+  const COMPLAINT_META: Record<string, { label: string; emoji: string }> = {
+    balance:   { label: t["report.complaint_balance"],   emoji: "⚖️"  },
+    operation: { label: t["report.complaint_operation"], emoji: "📢"  },
+    bug:       { label: t["report.complaint_bug"],       emoji: "🐛"  },
+    payment:   { label: t["report.complaint_payment"],   emoji: "💳"  },
+    content:   { label: t["report.complaint_content"],   emoji: "🎮"  },
+  };
 
   useEffect(() => {
     if (!uuid) return;
@@ -136,35 +138,35 @@ export default function ReportPage() {
         if (cancelled) return;
         const e = err as { response?: { status?: number } };
         setError(e.response?.status === 404
-          ? "해당 리포트를 찾을 수 없습니다."
-          : "리포트를 불러오는 중 오류가 발생했습니다.");
+          ? t["report.error_not_found"]
+          : t["report.error_generic"]);
         setLoading(false);
       }
     };
 
     poll();
     return () => { cancelled = true; };
-  }, [uuid]);
+  }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 로딩 ──────────────────────────────────────────────────────────
+  // ── 로딩 ────────────────────────────────────────────────────────
   if (loading && !report) return (
     <div className="min-h-screen flex flex-col items-center justify-center" style={{ backgroundColor: "var(--bg-base)" }}>
       <Loader2 size={36} className="animate-spin text-indigo-400 mb-3" />
-      <p className="text-sm" style={{ color: "var(--text-secondary)" }}>리포트 데이터를 불러오는 중...</p>
+      <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{t["report.loading_text"]}</p>
     </div>
   );
 
-  // ── 오류 ──────────────────────────────────────────────────────────
+  // ── 오류 ────────────────────────────────────────────────────────
   if (error) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ backgroundColor: "var(--bg-base)" }}>
       <div className="text-center max-w-sm w-full p-8 rounded-2xl border" style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}>
         <AlertTriangle size={40} className="text-red-400 mx-auto mb-4" />
-        <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>오류 발생</h2>
+        <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>{t["report.error_title"]}</h2>
         <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>{error}</p>
         <button onClick={() => router.push("/history")}
           className="w-full py-2.5 rounded-xl text-sm font-semibold border"
           style={{ backgroundColor: "var(--bg-raised)", color: "var(--text-primary)", borderColor: "var(--border)" }}>
-          목록으로 돌아가기
+          {t["report.back_to_list"]}
         </button>
       </div>
     </div>
@@ -184,36 +186,33 @@ export default function ReportPage() {
           style={{ backgroundColor: "rgba(99,102,241,0.1)" }}>
           <Loader2 size={28} className="animate-spin text-indigo-400" />
         </div>
-        <h2 className="text-xl font-black mb-2" style={{ color: "var(--text-primary)" }}>AI가 갤러리를 분석 중입니다</h2>
+        <h2 className="text-xl font-black mb-2" style={{ color: "var(--text-primary)" }}>{t["report.analyzing_title"]}</h2>
         <p className="text-sm mb-6 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-          게시글 스크래핑 및 Gemini AI 분석에는<br />
-          갤러리 규모에 따라 약 <strong style={{ color: "var(--text-primary)" }}>1~3분</strong>이 소요됩니다.
+          {t["report.analyzing_desc"]}
         </p>
         <div className="rounded-xl p-4 text-left space-y-2 border"
-          style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border-muted)" }}>
+          style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)" }}>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--text-muted)" }}>요청 ID</span>
+            <span style={{ color: "var(--text-muted)" }}>{t["report.req_id_label"]}</span>
             <span className="font-mono" style={{ color: "var(--text-secondary)" }}>{String(uuid).slice(0, 8)}...</span>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--text-muted)" }}>폴링</span>
+            <span style={{ color: "var(--text-muted)" }}>{t["report.polling_label"]}</span>
             <span style={{ color: "var(--text-secondary)" }}>{pollCount.current} / {MAX_POLLS}회</span>
           </div>
         </div>
         {timedOut && (
-          <p className="mt-4 text-xs text-red-400">
-            분석 시간이 초과되었습니다 (10분). 페이지를 새로고침하거나 다시 요청해주세요.
-          </p>
+          <p className="mt-4 text-xs text-red-400">{t["report.timeout_msg"]}</p>
         )}
       </div>
     </div>
   );
 
   // ── COMPLETED ─────────────────────────────────────────────────────
-  const pos       = insights?.sentiment_summary?.positive ?? [];
-  const neg       = insights?.sentiment_summary?.negative ?? [];
-  const issues    = insights?.major_issues ?? [];
-  const keywords  = insights?.top_keywords ?? [];
+  const pos        = insights?.sentiment_summary?.positive ?? [];
+  const neg        = insights?.sentiment_summary?.negative ?? [];
+  const issues     = insights?.major_issues ?? [];
+  const keywords   = insights?.top_keywords ?? [];
   const complaints = insights?.complaint_analysis ?? {};
 
   return (
@@ -227,10 +226,10 @@ export default function ReportPage() {
           style={{ color: "var(--text-secondary)" }}
           onMouseEnter={e => (e.currentTarget.style.color = "var(--text-primary)")}
           onMouseLeave={e => (e.currentTarget.style.color = "var(--text-secondary)")}>
-          <ArrowLeft size={15} /> 목록
+          <ArrowLeft size={15} /> {t["report.back_btn"]}
         </button>
         <span className="font-bold text-sm hidden sm:block" style={{ color: "var(--text-primary)" }}>
-          {report?.gameName || "AI 분석 리포트"}
+          {report?.gameName || t["report.default_title"]}
         </span>
         <span className="font-mono text-xs" style={{ color: "var(--text-muted)" }}>
           {String(uuid).slice(0, 8)}
@@ -246,7 +245,7 @@ export default function ReportPage() {
               <div className="flex items-center gap-2.5 mb-3">
                 <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border"
                   style={{ backgroundColor: "rgba(34,197,94,0.1)", borderColor: "rgba(34,197,94,0.25)", color: "#86efac" }}>
-                  <CheckCircle2 size={10} /> 분석 완료
+                  <CheckCircle2 size={10} /> {t["report.status_completed"]}
                 </span>
                 <span className="flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
                   <Calendar size={12} />
@@ -254,10 +253,10 @@ export default function ReportPage() {
                 </span>
               </div>
               <h1 className="text-3xl md:text-4xl font-black mb-1.5" style={{ color: "var(--text-primary)" }}>
-                {report?.gameName || "게임명 확인 불가"}
+                {report?.gameName || t["report.game_unknown"]}
               </h1>
               <p className="text-base font-medium" style={{ color: "var(--text-secondary)" }}>
-                {report?.galleryName || "갤러리명"}
+                {report?.galleryName || ""}
               </p>
             </div>
 
@@ -265,7 +264,7 @@ export default function ReportPage() {
             {insights?.critic_one_liner && (
               <div className="rounded-2xl p-5 max-w-sm border"
                 style={{ backgroundColor: "rgba(99,102,241,0.06)", borderColor: "rgba(99,102,241,0.2)" }}>
-                <p className="text-xs font-semibold mb-1.5 text-indigo-400">AI 한줄 요약</p>
+                <p className="text-xs font-semibold mb-1.5 text-indigo-400">{t["report.ai_summary_label"]}</p>
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
                   {insights.critic_one_liner}
                 </p>
@@ -293,24 +292,22 @@ export default function ReportPage() {
 
         {/* 긍정 / 부정 여론 */}
         <div className="grid md:grid-cols-2 gap-6">
-          {/* 긍정 여론 */}
-          <Section icon={<TrendingUp size={15} className="text-emerald-400" />} title="긍정 여론">
+          <Section icon={<TrendingUp size={15} className="text-emerald-400" />} title={t["report.section_positive"]}>
             {pos.length ? pos.map((item, i) => (
-              <SentimentCard key={i} item={item} tone="positive" />
-            )) : <Empty text="수집된 긍정 여론이 없습니다." />}
+              <SentimentCard key={i} item={item} tone="positive" readOriginal={t["report.read_original"]} />
+            )) : <Empty text={t["report.no_positive"]} />}
           </Section>
 
-          {/* 부정 여론 */}
-          <Section icon={<TrendingDown size={15} className="text-red-400" />} title="부정 여론">
+          <Section icon={<TrendingDown size={15} className="text-red-400" />} title={t["report.section_negative"]}>
             {neg.length ? neg.map((item, i) => (
-              <SentimentCard key={i} item={item} tone="negative" />
-            )) : <Empty text="수집된 부정 여론이 없습니다." />}
+              <SentimentCard key={i} item={item} tone="negative" readOriginal={t["report.read_original"]} />
+            )) : <Empty text={t["report.no_negative"]} />}
           </Section>
         </div>
 
         {/* 주요 이슈 */}
         {issues.length > 0 && (
-          <Section icon={<Flame size={15} className="text-orange-400" />} title="주요 이슈 리스트">
+          <Section icon={<Flame size={15} className="text-orange-400" />} title={t["report.section_issues"]}>
             <div className="space-y-3">
               {issues.map((issue, i) => (
                 <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
@@ -332,7 +329,7 @@ export default function ReportPage() {
                     {issue.issue_detail}
                   </p>
                   <div>
-                    <p className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>언급 빈도</p>
+                    <p className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>{t["report.mention_freq"]}</p>
                     <MentionBar score={issue.mention_score ?? 0} />
                   </div>
                 </motion.div>
@@ -343,11 +340,11 @@ export default function ReportPage() {
 
         {/* 불만 카테고리 */}
         {Object.keys(complaints).length > 0 && (
-          <Section icon={<BarChart2 size={15} className="text-violet-400" />} title="불만 카테고리 분석">
+          <Section icon={<BarChart2 size={15} className="text-violet-400" />} title={t["report.section_complaints"]}>
             <div className="grid sm:grid-cols-2 gap-3">
               {(Object.entries(complaints) as [string, ComplaintCategory][]).map(([key, cat], i) => {
-                const meta  = COMPLAINT_META[key] ?? { label: key, emoji: "📌" };
-                const sty   = scoreColor(cat.score ?? 0, 10);
+                const meta = COMPLAINT_META[key] ?? { label: key, emoji: "📌" };
+                const sty  = scoreColor(cat.score ?? 0, 10);
                 return (
                   <motion.div key={key} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.07 }}
@@ -369,7 +366,7 @@ export default function ReportPage() {
                     )}
                     {cat.example && (
                       <div className="flex items-start gap-1.5">
-                        <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>대표 발언</span>
+                        <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>{t["report.complaint_example_label"]}</span>
                         <p className="text-xs italic leading-relaxed" style={{ color: "var(--text-muted)" }}>
                           &ldquo;{cat.example}&rdquo;
                           {cat.example_url && (
@@ -393,11 +390,11 @@ export default function ReportPage() {
           style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-muted)" }}>
           <span className="flex items-center gap-1">
             <Clock size={11} />
-            요청: {report?.requestedAt ? new Date(report.requestedAt).toLocaleString("ko-KR") : "-"}
+            {t["report.req_time"]}: {report?.requestedAt ? new Date(report.requestedAt).toLocaleString("ko-KR") : "-"}
           </span>
           <span className="flex items-center gap-1">
             <CheckCircle2 size={11} />
-            완료: {report?.completedAt ? new Date(report.completedAt).toLocaleString("ko-KR") : "-"}
+            {t["report.done_time"]}: {report?.completedAt ? new Date(report.completedAt).toLocaleString("ko-KR") : "-"}
           </span>
           <span className="font-mono">UUID: {String(uuid)}</span>
         </div>
@@ -422,7 +419,11 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
   );
 }
 
-function SentimentCard({ item, tone }: { item: SentimentItem; tone: "positive" | "negative" }) {
+function SentimentCard({ item, tone, readOriginal }: {
+  item:         SentimentItem;
+  tone:         "positive" | "negative";
+  readOriginal: string;
+}) {
   const isPos = tone === "positive";
   return (
     <div className="flex items-start gap-3 p-3 rounded-xl border mb-2 last:mb-0"
@@ -438,7 +439,7 @@ function SentimentCard({ item, tone }: { item: SentimentItem; tone: "positive" |
         {item.ref_url && (
           <a href={item.ref_url} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs mt-1.5 text-indigo-400 hover:text-indigo-300 transition-colors">
-            원문 보기 <ExternalLink size={10} />
+            {readOriginal} <ExternalLink size={10} />
           </a>
         )}
       </div>
