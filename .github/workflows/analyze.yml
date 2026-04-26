@@ -16,6 +16,9 @@ on:
 
 jobs:
   analyze_and_save:
+    # DC Inside는 GitHub Actions(Azure) IP를 차단합니다.
+    # 해결책 A: self-hosted runner 사용 → 아래 값을 [self-hosted] 로 변경
+    # 해결책 B: SCRAPER_PROXY GitHub Secret 설정 (예: socks5://user:pass@host:port)
     runs-on: ubuntu-latest
 
     steps:
@@ -37,6 +40,9 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}
+          # DC Inside 접근 차단 시 프록시 설정 (선택 사항)
+          # GitHub Secret "SCRAPER_PROXY" 에 socks5://user:pass@host:port 형식으로 설정
+          SCRAPER_PROXY: ${{ secrets.SCRAPER_PROXY }}
         run: |
           cd python_scripts
           python main_worker.py "${{ github.event.inputs.gallery_url }}" "${{ github.event.inputs.uuid }}"

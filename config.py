@@ -31,7 +31,7 @@ SCRAPE_DELAY_MIN  = 0.4
 SCRAPE_DELAY_MAX  = 0.8
 DETAIL_DELAY_MIN  = 0.5
 DETAIL_DELAY_MAX  = 1.0
-REQUEST_TIMEOUT   = 6
+REQUEST_TIMEOUT   = 20
 BODY_MAX_CHARS    = 800
 
 # ─────────────────────────────────────────────

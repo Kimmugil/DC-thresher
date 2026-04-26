@@ -105,17 +105,37 @@ def _gname(soup):
     return ""
 
 
-def _soup(sess, url, params):
-    try:
-        r = sess.get(url, params=params, headers=WEB_HEADERS, timeout=REQUEST_TIMEOUT)
-        print(f"[DEBUG] GET {url} params={params} → HTTP {r.status_code}, {len(r.text)} chars")
-        if r.status_code != 200:
-            print(f"[DEBUG] Non-200 response body (first 300 chars): {r.text[:300]}")
-            return None
-        return BeautifulSoup(r.text, "html.parser")
-    except Exception as e:
-        print(f"[DEBUG] _soup exception: {e}")
-        return None
+def _build_proxies():
+    """환경변수 SCRAPER_PROXY 또는 표준 HTTPS_PROXY/HTTP_PROXY 사용."""
+    import os
+    p = os.environ.get("SCRAPER_PROXY") or os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY")
+    if p:
+        print(f"[DEBUG] 프록시 사용: {p[:30]}...")
+        return {"http": p, "https": p}
+    return None
+
+
+_PROXIES = _build_proxies()
+
+
+def _soup(sess, url, params, retries=3):
+    """페이지를 가져와 BeautifulSoup 반환. 실패 시 retries 횟수만큼 재시도."""
+    for attempt in range(1, retries + 1):
+        try:
+            kwargs = dict(params=params, headers=WEB_HEADERS, timeout=REQUEST_TIMEOUT)
+            if _PROXIES:
+                kwargs["proxies"] = _PROXIES
+            r = sess.get(url, **kwargs)
+            print(f"[DEBUG] GET {url} params={params} → HTTP {r.status_code}, {len(r.text)} chars (시도 {attempt})")
+            if r.status_code != 200:
+                print(f"[DEBUG] Non-200 body (first 300 chars): {r.text[:300]}")
+                return None
+            return BeautifulSoup(r.text, "html.parser")
+        except Exception as e:
+            print(f"[DEBUG] _soup 시도 {attempt}/{retries} 실패: {e}")
+            if attempt < retries:
+                time.sleep(3 * attempt)
+    return None
 
 
 _ROW_SELECTORS = [
