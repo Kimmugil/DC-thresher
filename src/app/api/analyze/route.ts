@@ -4,7 +4,7 @@ import axios from 'axios';
 
 // DC Inside 갤러리 URL 패턴 검증 (단순 문자열 포함 검사 대신 정규식 적용)
 const DC_GALLERY_URL_PATTERN =
-  /^https?:\/\/gall\.dcinside\.com\/(mgallery\/|mini\/)?board\/(lists|view)\/?\?[^"'<>]*[?&]id=[a-zA-Z0-9_]+/;
+  /^https?:\/\/gall\.dcinside\.com\/(mgallery\/|mini\/)?board\/(lists|view)\/?\?(?:[^"'<>]*[?&])?id=[a-zA-Z0-9_]+/;
 
 export async function POST(request: Request) {
   try {

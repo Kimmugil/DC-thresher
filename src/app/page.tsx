@@ -8,7 +8,7 @@ import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
 
 const DC_GALLERY_URL_PATTERN =
-  /^https?:\/\/gall\.dcinside\.com\/(mgallery\/|mini\/)?board\/(lists|view)\/?\?[^"'<>]*[?&]id=[a-zA-Z0-9_]+/;
+  /^https?:\/\/gall\.dcinside\.com\/(mgallery\/|mini\/)?board\/(lists|view)\/?\?(?:[^"'<>]*[?&])?id=[a-zA-Z0-9_]+/;
 
 const STEP_ICONS = [Search, Database, Bot, Sparkles];
 
