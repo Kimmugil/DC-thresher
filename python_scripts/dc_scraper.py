@@ -1,10 +1,15 @@
 """
-dc_scraper.py v8
+dc_scraper.py v9
 
-[v8 변경]
-- SSL 검증 복원 (verify=True): urllib3.disable_warnings 제거
-- requests.Session 명시적 close (try/finally)
+[v9 변경]
+- DC-Pickaxe 검증 설정 적용: verify=False + urllib3.disable_warnings
+  (DC Inside 서버 SSL 인증서 문제로 verify=True 시 GitHub Actions에서 연결 불가)
+- WEB_HEADERS를 실제 브라우저와 동일한 전체 헤더로 교체
+  (User-Agent 단독 → 12개 헤더, WAF 우회)
 """
+
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 import requests
 from bs4 import BeautifulSoup
@@ -24,11 +29,19 @@ TOP_PCT          = 0.10
 MIN_BODY_POSTS   = 20
 SPAM_MIN_TITLE   = 4
 
+# DC-Pickaxe 검증 완료 헤더 — User-Agent 단독은 WAF에 차단됨
 WEB_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    )
+    "User-Agent":                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept":                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Accept-Language":           "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding":           "gzip, deflate, br",
+    "Connection":                "keep-alive",
+    "Referer":                   "https://www.dcinside.com/",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest":            "document",
+    "Sec-Fetch-Mode":            "navigate",
+    "Sec-Fetch-Site":            "same-origin",
+    "Sec-Fetch-User":            "?1",
 }
 APP_HEADERS = {
     "User-Agent": "dcinside.app",
@@ -122,7 +135,10 @@ def _soup(sess, url, params, retries=3):
     """페이지를 가져와 BeautifulSoup 반환. 실패 시 retries 횟수만큼 재시도."""
     for attempt in range(1, retries + 1):
         try:
-            kwargs = dict(params=params, headers=WEB_HEADERS, timeout=REQUEST_TIMEOUT)
+            kwargs = dict(
+                params=params, headers=WEB_HEADERS,
+                timeout=REQUEST_TIMEOUT, verify=False,  # DC Inside SSL 인증서 이슈 대응
+            )
             if _PROXIES:
                 kwargs["proxies"] = _PROXIES
             r = sess.get(url, **kwargs)
@@ -403,7 +419,7 @@ def run_dc_scraper(url, days_limit, progress_cb=None):
                 progress_cb(f"본문 수집 중... ({idx + 1}/{len(core)})", pct)
             try:
                 r  = sess.get(vu, params={"id": gid, "no": m["post_no"]},
-                              headers=WEB_HEADERS, timeout=REQUEST_TIMEOUT)
+                              headers=WEB_HEADERS, timeout=REQUEST_TIMEOUT, verify=False)
                 sp = BeautifulSoup(r.text, "html.parser")
                 bd = sp.select_one(".write_div")
                 body = re.sub(r"\s+", " ", bd.get_text(separator=" ").strip())[:BODY_MAX_CHARS] if bd else "본문 누락"
