@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import { DEFAULT_TEXTS } from "@/lib/ui-texts";
+import { DEFAULT_TEXTS } from "@/lib/ui-texts-defaults";
 
 type TextsMap = Record<string, string>;
 
