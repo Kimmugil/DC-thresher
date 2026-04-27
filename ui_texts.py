@@ -355,6 +355,7 @@ def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_des
 2. JSON 텍스트 값 내 큰따옴표(") · 줄바꿈(\\n) 절대 금지. 강조는 작은따옴표(') 사용.
 3. 마크다운 기호(** ~ #) 사용 금지.
 4. 전체 응답은 반드시 15,000자 이내.
+5. [중요] ref_title과 ref_url은 반드시 주어진 데이터 원문에 있는 정확한 [제목]과 [URL]을 그대로 복사해서 사용하세요. 절대로 가짜 URL이나 제목을 지어내지 마세요. 일치하는 글이 없다면 빈 문자열("")로 남겨두세요.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📐 필드별 길이 제한 (엄수)
@@ -364,7 +365,7 @@ def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_des
 - summary (모든 필드): 80자 이내
 - issue_title      : 15자 이내
 - issue_detail     : 80자 이내
-- ref_title        : 실제 게시글의 제목 (가장 적절한 예시 게시글)
+- ref_title        : 데이터에 존재하는 실제 원본 게시글의 정확한 제목 (절대 창작 금지)
 - top_keywords     : 정확히 5개, 각 10자 이내
 - positive 배열    : 중요도 상위 3개만
 - negative 배열    : 중요도 상위 3개만
