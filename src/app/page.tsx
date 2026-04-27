@@ -97,7 +97,8 @@ export default function Home() {
               {t["home.badge"]}
             </div>
             <h1 className="text-4xl md:text-5xl font-black mb-4 leading-tight" style={{ color: "var(--text-primary)" }}>
-              {t["home.title_line1"]}{" "}
+              {t["home.title_line1"]}
+              <br />
               <span className="text-indigo-400">{t["home.title_accent"]}</span>
             </h1>
             <p className="text-base md:text-lg leading-relaxed max-w-lg mx-auto" style={{ color: "var(--text-secondary)" }}>
