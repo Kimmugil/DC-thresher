@@ -146,7 +146,7 @@ TICKER_MESSAGES = [
 TAB_LABELS = [
     "📈 갤러리 현황",
     "🔥 주요 이슈",
-    "⚠️ 불만 분석",
+    "💬 주요 동향",
     "📋 원본 데이터",
 ]
 
@@ -163,16 +163,16 @@ ANALYSIS_SPEC_TMPL = (
     "기간 내 게시글 {total}개 중 댓글 수 상위 {analysis}개 수집"
 )
 
-# 불만 점수 기준 박스
+# 동향 점수 기준 박스
 COMPLAINT_SCORE_BOX = """
 <div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;
             padding:12px 16px;font-size:0.85rem;margin-bottom:1.2rem;">
-  <b style="color:#1e2129;">ℹ️ 불만 강도 점수 기준 (0–10점)</b><br>
+  <b style="color:#1e2129;">ℹ️ 동향 강도 점수 기준 (0–10점)</b><br>
   <span style="color:#888;font-weight:700;">0–2점</span> 거의 없음 ·
   <span style="color:#2980b9;font-weight:700;">3–4점</span> 소수 언급 ·
   <span style="color:#e67e22;font-weight:700;">5–6점</span> 반복 언급 ·
-  <span style="color:#c0392b;font-weight:700;">7–8점</span> 다수 불만 ·
-  <span style="color:#c0392b;font-weight:900;">9–10점</span> 주요 이슈<br>
+  <span style="color:#c0392b;font-weight:700;">7–8점</span> 다수 언급 ·
+  <span style="color:#c0392b;font-weight:900;">9–10점</span> 주요 동향<br>
   <span style="color:#888;font-size:0.8rem;">
     분석 게시글 내 해당 카테고리 키워드 언급 비율 기준 (30% 이상→7–10점 / 10–30%→4–6점 / 10% 미만→0–3점)
   </span>
@@ -195,11 +195,11 @@ ISSUE_TITLE         = "### 🔥 주요 이슈 리스트"
 ISSUE_NO_DATA       = "감지된 주요 이슈가 없습니다."
 SCORE_BASED_ON_FREQ = "언급 빈도 점수"
 
-COMPLAINT_TITLE         = "불만 카테고리별 분석"
-COMPLAINT_NO_DATA       = "불만 카테고리 데이터가 없습니다."
-COMPLAINT_RADAR_NAME    = "불만 강도"
+COMPLAINT_TITLE         = "주요 동향별 분석"
+COMPLAINT_NO_DATA       = "주요 동향 데이터가 없습니다."
+COMPLAINT_RADAR_NAME    = "동향 강도"
 COMPLAINT_NO_SUMMARY    = "데이터 없음"
-COMPLAINT_EXAMPLE_LABEL = "관련 여론:"
+COMPLAINT_EXAMPLE_LABEL = "대표 게시글:"
 
 RAW_TITLE_TMPL      = "수집된 전체 {total}개 게시글 · 집중 수집 표본 {analysis}개"
 RAW_ALL_TITLE       = "#### 전체 수집 목록 (날짜별)"
@@ -225,13 +225,13 @@ NOTION_SUMMARY_TITLE   = "🤖 AI 현황 요약"
 NOTION_POS_TITLE       = "🟢 주요 긍정 여론"
 NOTION_NEG_TITLE       = "🔴 주요 부정 여론"
 NOTION_ISSUE_TITLE     = "🔥 주요 이슈 리스트"
-NOTION_COMPLAINT_TITLE = "⚠️ 불만 카테고리 분석"
+NOTION_COMPLAINT_TITLE = "💬 주요 동향 분석"
 NOTION_TIMELINE_TITLE  = "📊 일자별 수집 게시글 수 추이"
 NOTION_RAW_TITLE       = "📋 원본 데이터 (최근 수집순)"
 NOTION_SCORE_CRITERIA  = (
-    "불만 강도 점수 기준 (0–10점)\n"
+    "동향 강도 점수 기준 (0–10점)\n"
     "0–2점: 거의 없음 / 3–4점: 소수 언급 / "
-    "5–6점: 반복 언급 / 7–8점: 다수 불만 / 9–10점: 주요 이슈\n"
+    "5–6점: 반복 언급 / 7–8점: 다수 언급 / 9–10점: 주요 동향\n"
     "산출 기준: 해당 카테고리 키워드 언급 비율 (30%↑→7–10점 / 10–30%→4–6점 / 10%↓→0–3점)"
 )
 NOTION_ISSUE_CRITERIA  = (
@@ -359,11 +359,12 @@ def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_des
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📐 필드별 길이 제한 (엄수)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- analysis_criteria: 50자 이내 (예: 최근 7일간 일평균 250개 중 상위 50개 집중 분석)
 - critic_one_liner : 50자 이내, 이모지 1개 포함, 현상 서술형
 - summary (모든 필드): 80자 이내
 - issue_title      : 15자 이내
 - issue_detail     : 80자 이내
-- example          : 40자 이내 (직접 인용 금지, 핵심 표현만 압축)
+- ref_title        : 실제 게시글의 제목 (가장 적절한 예시 게시글)
 - top_keywords     : 정확히 5개, 각 10자 이내
 - positive 배열    : 중요도 상위 3개만
 - negative 배열    : 중요도 상위 3개만
@@ -374,12 +375,13 @@ def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_des
 📊 점수 기준
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - mention_score(0-100): 전체 게시글 중 해당 이슈 언급 비율
-- complaint score(0-10): 키워드 언급 비율 (30%↑→7-10 / 10-30%→4-6 / 10%↓→0-3)
+- trend score(0-10): 키워드 언급 비율 (30%↑→7-10 / 10-30%→4-6 / 10%↓→0-3)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 출력 JSON 스키마
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{
+  "analysis_criteria": "분석 기준 및 데이터 기간 명시 (50자 이내)",
   "critic_one_liner": "이모지+현상서술 50자이내",
   "top_keywords": ["키워드1","키워드2","키워드3","키워드4","키워드5"],
   "sentiment_summary": {{
@@ -389,12 +391,12 @@ def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_des
   "major_issues": [
     {{"issue_title":"15자이내","issue_detail":"80자이내","mention_score":0,"ref_url":""}}
   ],
-  "complaint_analysis": {{
-    "balance":   {{"score":0,"summary":"80자이내","example":"40자이내","example_url":""}},
-    "operation": {{"score":0,"summary":"80자이내","example":"40자이내","example_url":""}},
-    "bug":       {{"score":0,"summary":"80자이내","example":"40자이내","example_url":""}},
-    "payment":   {{"score":0,"summary":"80자이내","example":"40자이내","example_url":""}},
-    "content":   {{"score":0,"summary":"80자이내","example":"40자이내","example_url":""}}
+  "trend_analysis": {{
+    "동향카테고리1(예: 게임플레이/업데이트/운영 등 AI가 유동적으로 결정)": {{"score":0,"summary":"80자이내","ref_title":"실제원문제목","ref_url":""}},
+    "동향카테고리2": {{"score":0,"summary":"80자이내","ref_title":"실제원문제목","ref_url":""}},
+    "동향카테고리3": {{"score":0,"summary":"80자이내","ref_title":"실제원문제목","ref_url":""}},
+    "동향카테고리4": {{"score":0,"summary":"80자이내","ref_title":"실제원문제목","ref_url":""}},
+    "동향카테고리5": {{"score":0,"summary":"80자이내","ref_title":"실제원문제목","ref_url":""}}
   }}
 }}
 

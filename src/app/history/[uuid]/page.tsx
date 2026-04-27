@@ -19,13 +19,14 @@ interface MajorIssue {
   mention_score: number;
   ref_url:       string;
 }
-interface ComplaintCategory {
+interface TrendCategory {
   score:       number;
   summary:     string;
-  example:     string;
-  example_url: string;
+  ref_title:   string;
+  ref_url:     string;
 }
 interface AiInsights {
+  analysis_criteria?: string;
   critic_one_liner?: string;
   top_keywords?:     string[];
   sentiment_summary?: {
@@ -33,13 +34,7 @@ interface AiInsights {
     negative?: SentimentItem[];
   };
   major_issues?:      MajorIssue[];
-  complaint_analysis?: {
-    balance?:   ComplaintCategory;
-    operation?: ComplaintCategory;
-    bug?:       ComplaintCategory;
-    payment?:   ComplaintCategory;
-    content?:   ComplaintCategory;
-  };
+  trend_analysis?: Record<string, TrendCategory>;
   game_name?:    string;
   gallery_name?: string;
 }
@@ -98,14 +93,7 @@ export default function ReportPage() {
   const [error,    setError]    = useState("");
   const [timedOut, setTimedOut] = useState(false);
 
-  // 불만 카테고리 레이블 (텍스트 CMS에서 읽기)
-  const COMPLAINT_META: Record<string, { label: string; emoji: string }> = {
-    balance:   { label: t["report.complaint_balance"],   emoji: "⚖️"  },
-    operation: { label: t["report.complaint_operation"], emoji: "📢"  },
-    bug:       { label: t["report.complaint_bug"],       emoji: "🐛"  },
-    payment:   { label: t["report.complaint_payment"],   emoji: "💳"  },
-    content:   { label: t["report.complaint_content"],   emoji: "🎮"  },
-  };
+  // 불만 카테고리 관련 메타 삭제 (AI가 동적으로 생성함)
 
   useEffect(() => {
     if (!uuid) return;
@@ -213,7 +201,7 @@ export default function ReportPage() {
   const neg        = insights?.sentiment_summary?.negative ?? [];
   const issues     = insights?.major_issues ?? [];
   const keywords   = insights?.top_keywords ?? [];
-  const complaints = insights?.complaint_analysis ?? {};
+  const trends     = insights?.trend_analysis ?? {};
 
   return (
     <main className="min-h-screen pb-20" style={{ backgroundColor: "var(--bg-base)" }}>
@@ -260,16 +248,29 @@ export default function ReportPage() {
               </p>
             </div>
 
-            {/* 한줄 요약 */}
-            {insights?.critic_one_liner && (
-              <div className="rounded-2xl p-5 max-w-sm border"
-                style={{ backgroundColor: "rgba(99,102,241,0.06)", borderColor: "rgba(99,102,241,0.2)" }}>
-                <p className="text-xs font-semibold mb-1.5 text-indigo-400">{t["report.ai_summary_label"]}</p>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
-                  {insights.critic_one_liner}
-                </p>
-              </div>
-            )}
+            <div className="flex flex-col gap-3 max-w-sm w-full md:w-auto">
+              {/* 한줄 요약 */}
+              {insights?.critic_one_liner && (
+                <div className="rounded-2xl p-5 border"
+                  style={{ backgroundColor: "rgba(99,102,241,0.06)", borderColor: "rgba(99,102,241,0.2)" }}>
+                  <p className="text-xs font-semibold mb-1.5 text-indigo-400">{t["report.ai_summary_label"]}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
+                    {insights.critic_one_liner}
+                  </p>
+                </div>
+              )}
+              {/* 분석 기준 */}
+              {insights?.analysis_criteria && (
+                <div className="rounded-xl px-4 py-3 border flex gap-2 items-start"
+                  style={{ backgroundColor: "var(--bg-raised)", borderColor: "var(--border)" }}>
+                  <BarChart2 size={14} className="mt-0.5 text-indigo-400 shrink-0" />
+                  <div>
+                    <p className="text-[11px] font-semibold text-indigo-400/80 mb-0.5">{t["report.criteria_label"]}</p>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{insights.analysis_criteria}</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </motion.div>
 
           {/* 키워드 태그 */}
@@ -338,44 +339,42 @@ export default function ReportPage() {
           </Section>
         )}
 
-        {/* 불만 카테고리 */}
-        {Object.keys(complaints).length > 0 && (
-          <Section icon={<BarChart2 size={15} className="text-violet-400" />} title={t["report.section_complaints"]}>
+        {/* 주요 동향 분석 */}
+        {Object.keys(trends).length > 0 && (
+          <Section icon={<BarChart2 size={15} className="text-violet-400" />} title={t["report.section_trends"]}>
             <div className="grid sm:grid-cols-2 gap-3">
-              {(Object.entries(complaints) as [string, ComplaintCategory][]).map(([key, cat], i) => {
-                const meta = COMPLAINT_META[key] ?? { label: key, emoji: "📌" };
+              {Object.entries(trends).map(([key, cat], i) => {
                 const sty  = scoreColor(cat.score ?? 0, 10);
                 return (
                   <motion.div key={key} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.07 }}
-                    className="p-4 rounded-xl border"
+                    className="p-4 rounded-xl border flex flex-col h-full"
                     style={{ backgroundColor: sty.bg, borderColor: sty.border }}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-                        {meta.emoji} {meta.label}
+                        {key}
                       </span>
-                      <span className="text-xs font-black px-2 py-0.5 rounded-full"
+                      <span className="text-xs font-black px-2 py-0.5 rounded-full shrink-0 ml-2"
                         style={{ backgroundColor: sty.bg, color: sty.text, border: `1px solid ${sty.border}` }}>
                         {cat.score ?? 0}/10
                       </span>
                     </div>
                     {cat.summary && (
-                      <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--text-secondary)" }}>
+                      <p className="text-xs leading-relaxed mb-4 flex-1" style={{ color: "var(--text-secondary)" }}>
                         {cat.summary}
                       </p>
                     )}
-                    {cat.example && (
-                      <div className="flex items-start gap-1.5">
-                        <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>{t["report.complaint_example_label"]}</span>
-                        <p className="text-xs italic leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                          &ldquo;{cat.example}&rdquo;
-                          {cat.example_url && (
-                            <a href={cat.example_url} target="_blank" rel="noopener noreferrer"
-                              className="inline-block ml-1 text-indigo-400 hover:text-indigo-300">
-                              <ExternalLink size={10} />
-                            </a>
-                          )}
-                        </p>
+                    {cat.ref_title && (
+                      <div className="flex items-start gap-1.5 pt-3 border-t mt-auto" style={{ borderColor: sty.border }}>
+                        <span className="text-[11px] font-semibold shrink-0 mt-[1px]" style={{ color: "var(--text-muted)" }}>
+                          {t["report.trend_example_label"]}
+                        </span>
+                        <a href={cat.ref_url || "#"} target="_blank" rel="noopener noreferrer"
+                          className="text-[13px] font-medium hover:underline flex items-start gap-1 min-w-0"
+                          style={{ color: sty.text }}>
+                          <span className="truncate leading-tight block">{cat.ref_title}</span>
+                          {cat.ref_url && <ExternalLink size={11} className="shrink-0 mt-[2px]" />}
+                        </a>
                       </div>
                     )}
                   </motion.div>

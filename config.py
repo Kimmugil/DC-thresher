@@ -25,6 +25,22 @@ else:
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 # ─────────────────────────────────────────────
+# GAS 및 구글 드라이브 연동 설정
+# ─────────────────────────────────────────────
+GAS_WEBAPP_URL = os.environ.get(
+    "GAS_WEBAPP_URL",
+    "https://script.google.com/macros/s/AKfycbzGgJ2fObM3i01BFDBBfs-9uNxuGEV_D9Fk_0NZGBVMuZ_iVefSRJ20clo2Pf6JqwWrdQ/exec"
+)
+GAS_FOLDER_ID = os.environ.get(
+    "GAS_FOLDER_ID",
+    "1XtcOAUvedTfFDqvG-syjHKsY_OojMm7F"
+)
+SERVICE_ACCOUNT_EMAIL = os.environ.get(
+    "SERVICE_ACCOUNT_EMAIL",
+    "dc-thresher@kimmugil-project.iam.gserviceaccount.com"
+)
+
+# ─────────────────────────────────────────────
 # 스크래핑 설정
 # ─────────────────────────────────────────────
 SCRAPE_DELAY_MIN  = 0.4
