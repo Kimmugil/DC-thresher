@@ -24,7 +24,7 @@ from config import (
 )
 
 # ── 상수 ──────────────────────────────────────────────────────────
-MAX_BODY_POSTS   = 50
+MAX_BODY_POSTS   = 100
 TOP_PCT          = 0.10
 MIN_BODY_POSTS   = 20
 SPAM_MIN_TITLE   = 4
