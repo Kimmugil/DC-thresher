@@ -171,6 +171,13 @@ export default function ReportPage() {
         {timedOut && (
           <p className="mt-4 text-xs text-red-400">{t["report.timeout_msg"]}</p>
         )}
+        <div className="mt-6">
+          <button onClick={() => router.push("/")}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-white/5"
+            style={{ backgroundColor: "var(--bg-base)", color: "var(--text-secondary)", borderColor: "var(--border)" }}>
+            홈으로 돌아가기 (백그라운드에서 계속 진행됩니다)
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -184,9 +191,9 @@ export default function ReportPage() {
   return (
     <main className="min-h-screen pb-20" style={{ backgroundColor: "var(--bg-base)" }}>
 
-      {/* 네비게이션 */}
-      <nav className="sticky top-0 z-10 flex items-center justify-between px-5 h-14 border-b backdrop-blur-md"
-        style={{ backgroundColor: "rgba(13,17,23,0.9)", borderColor: "var(--border)" }}>
+      {/* 상단 액션 */}
+      <div className="flex items-center justify-between px-5 h-14 border-b"
+        style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-surface)" }}>
         <button onClick={() => router.push("/history")}
           className="flex items-center gap-1.5 text-sm font-medium transition-colors"
           style={{ color: "var(--text-secondary)" }}
@@ -200,7 +207,7 @@ export default function ReportPage() {
         <span className="font-mono text-xs" style={{ color: "var(--text-muted)" }}>
           {String(uuid).slice(0, 8)}
         </span>
-      </nav>
+      </div>
 
       {/* 헤더 */}
       <header className="border-b py-10" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-surface)" }}>

@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { Noto_Sans_KR } from "next/font/google";
 import { fetchUITexts } from "@/lib/ui-texts";
 import { UITextsProvider } from "@/components/UITextsProvider";
+import Navigation from "@/components/Navigation";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -33,7 +34,10 @@ export default async function RootLayout({
   return (
     <html lang="ko" className={`${inter.variable} ${notoSansKR.variable}`}>
       <body>
-        <UITextsProvider texts={texts}>{children}</UITextsProvider>
+        <UITextsProvider texts={texts}>
+          <Navigation />
+          {children}
+        </UITextsProvider>
       </body>
     </html>
   );

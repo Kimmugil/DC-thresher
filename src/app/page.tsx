@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, History, ArrowRight, Loader2, AlertCircle, Sparkles, Database, Bot } from "lucide-react";
@@ -20,6 +21,23 @@ export default function Home() {
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState("");
   const [statusMsg, setStatusMsg] = useState("");
+  const [pendingReports, setPendingReports] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Fetch history and filter pending
+    const fetchPending = async () => {
+      try {
+        const res = await axios.get("/api/history");
+        const pending = res.data.reports?.filter((r: any) => r.status === "PENDING") || [];
+        setPendingReports(pending);
+      } catch (e) {
+        // ignore
+      }
+    };
+    fetchPending();
+    const interval = setInterval(fetchPending, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const STEPS = [
     { icon: Search,   label: t["home.step1_label"], desc: t["home.step1_desc"] },
@@ -59,27 +77,7 @@ export default function Home() {
   return (
     <main className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg-base)" }}>
 
-      {/* 상단 헤더 */}
-      <header className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border)" }}>
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
-            <Search size={14} className="text-white" />
-          </div>
-          <span className="font-bold text-sm tracking-wide" style={{ color: "var(--text-primary)" }}>
-            DC-Thresher
-          </span>
-        </div>
-        <button
-          onClick={() => router.push("/history")}
-          className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-          style={{ color: "var(--text-secondary)" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "var(--text-primary)")}
-          onMouseLeave={e => (e.currentTarget.style.color = "var(--text-secondary)")}
-        >
-          <History size={15} />
-          {t["home.nav_history"]}
-        </button>
-      </header>
+
 
       {/* 메인 컨텐츠 */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
@@ -223,6 +221,35 @@ export default function Home() {
           <p className="text-center text-xs mt-6" style={{ color: "var(--text-muted)" }}>
             {t["home.footer_note"]}
           </p>
+          {/* 진행 중인 대기열 (Pending Queue) */}
+          {pendingReports.length > 0 && (
+            <div className="mt-12 w-full max-w-2xl mx-auto">
+              <h2 className="text-sm font-bold flex items-center gap-2 mb-4 text-indigo-400">
+                <Loader2 size={16} className="animate-spin" />
+                분석 진행 중인 갤러리 대기소
+              </h2>
+              <div className="flex flex-col gap-3">
+                {pendingReports.map((r, i) => (
+                  <Link key={i} href={`/history/${r.uuid}`}
+                    className="flex items-center justify-between p-4 rounded-xl border transition-colors hover:bg-white/5"
+                    style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
+                        {r.gameName || r.galleryName || "분석 중..."}
+                      </span>
+                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {new Date(r.requestedAt).toLocaleString("ko-KR")} 요청됨
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-semibold px-2 py-1 rounded-md"
+                      style={{ backgroundColor: "rgba(99,102,241,0.1)", color: "#818cf8" }}>
+                      진행 중
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </motion.div>
       </div>
     </main>

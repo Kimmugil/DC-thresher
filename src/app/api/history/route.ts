@@ -33,6 +33,7 @@ export async function GET() {
     const rows = await sheet.getRows();
 
     const reports = rows
+      .filter(row => row.get('Hidden') !== 'TRUE' && row.get('Hidden') !== 'true')
       .map((row) => ({
         uuid:        row.get('UUID')        || '',
         status:      row.get('Status')      || 'PENDING',
