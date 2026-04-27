@@ -86,6 +86,18 @@ def main():
     # Attach names for save_to_sheets.py
     insights["game_name"] = game_name
     insights["gallery_name"] = gallery_name
+    
+    # Attach scrape metadata for frontend display
+    ana_data = scrape_result.get("analysis_data", [])
+    if ana_data:
+        s_data = sorted(ana_data, key=lambda x: x.get("comment_count", 0), reverse=True)
+        insights["scrape_meta"] = {
+            "total_posts": scrape_result.get("total_posts", 0),
+            "core_posts": len(ana_data),
+            "date_range": scrape_result.get("date_range_str", ""),
+            "max_comment_post": {"title": s_data[0].get("title", ""), "comment_count": s_data[0].get("comment_count", 0)},
+            "min_comment_post": {"title": s_data[-1].get("title", ""), "comment_count": s_data[-1].get("comment_count", 0)}
+        }
 
     # Save insights
     with open("insights.json", "w", encoding="utf-8") as f:

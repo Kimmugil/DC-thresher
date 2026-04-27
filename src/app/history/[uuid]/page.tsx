@@ -5,38 +5,46 @@ import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Loader2, Calendar, AlertTriangle,
-  CheckCircle2, Clock, TrendingUp, TrendingDown,
-  ExternalLink, Tag, Flame, BarChart2, Info
+  CheckCircle2, Clock, Users, Database, FileText,
+  ExternalLink, Tag, Flame, Info, Filter, Hash
 } from "lucide-react";
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
 
 // ── Gemini 실제 출력 타입 ─────────────────────────────────────────
-interface SentimentItem { summary: string; ref_url: string }
+interface RelatedPost { title: string; url: string; }
+
+interface PublicOpinion {
+  opinion_title: string;
+  opinion_summary: string;
+  is_positive: boolean;
+  related_posts?: RelatedPost[];
+}
+
 interface MajorIssue {
-  issue_title:   string;
-  issue_detail:  string;
-  mention_score: number;
-  ref_url:       string;
+  issue_title: string;
+  issue_category: string;
+  issue_keywords?: string[];
+  issue_summary: string;
+  related_posts?: RelatedPost[];
 }
-interface TrendCategory {
-  score:       number;
-  summary:     string;
-  ref_title:   string;
-  ref_url:     string;
+
+interface ScrapeMeta {
+  total_posts?: number;
+  core_posts?: number;
+  date_range?: string;
+  max_comment_post?: { title: string; comment_count: number };
+  min_comment_post?: { title: string; comment_count: number };
 }
+
 interface AiInsights {
-  analysis_criteria?: string;
   critic_one_liner?: string;
-  top_keywords?:     string[];
-  sentiment_summary?: {
-    positive?: SentimentItem[];
-    negative?: SentimentItem[];
-  };
-  major_issues?:      MajorIssue[];
-  trend_analysis?: Record<string, TrendCategory>;
-  game_name?:    string;
+  top_keywords?: string[];
+  public_opinions?: PublicOpinion[];
+  major_issues?: MajorIssue[];
+  game_name?: string;
   gallery_name?: string;
+  scrape_meta?: ScrapeMeta;
 }
 
 interface ReportData {
@@ -53,33 +61,6 @@ interface ReportData {
 const MAX_POLLS     = 60;
 const POLL_INTERVAL = 10_000;
 
-// ── 헬퍼 ──────────────────────────────────────────────────────────
-function scoreColor(score: number, max = 10) {
-  const ratio = score / max;
-  if (ratio >= 0.7) return { text: "#fca5a5", bg: "rgba(239,68,68,0.12)",  border: "rgba(239,68,68,0.25)"  };
-  if (ratio >= 0.4) return { text: "#fcd34d", bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.25)" };
-  return                   { text: "#a5b4fc", bg: "rgba(99,102,241,0.1)",  border: "rgba(99,102,241,0.2)"  };
-}
-
-function MentionBar({ score }: { score: number }) {
-  const pct   = Math.min(100, Math.max(0, score));
-  const color = pct >= 60 ? "#f87171" : pct >= 30 ? "#fbbf24" : "#818cf8";
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--bg-raised)" }}>
-        <motion.div
-          className="h-full rounded-full"
-          style={{ backgroundColor: color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-        />
-      </div>
-      <span className="text-xs font-bold w-8 text-right" style={{ color }}>{pct}</span>
-    </div>
-  );
-}
-
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────
 export default function ReportPage() {
   const { uuid }  = useParams();
@@ -92,8 +73,6 @@ export default function ReportPage() {
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState("");
   const [timedOut, setTimedOut] = useState(false);
-
-  // 불만 카테고리 관련 메타 삭제 (AI가 동적으로 생성함)
 
   useEffect(() => {
     if (!uuid) return;
@@ -197,11 +176,10 @@ export default function ReportPage() {
   );
 
   // ── COMPLETED ─────────────────────────────────────────────────────
-  const pos        = insights?.sentiment_summary?.positive ?? [];
-  const neg        = insights?.sentiment_summary?.negative ?? [];
-  const issues     = insights?.major_issues ?? [];
-  const keywords   = insights?.top_keywords ?? [];
-  const trends     = insights?.trend_analysis ?? {};
+  const opinions = insights?.public_opinions ?? [];
+  const issues   = insights?.major_issues ?? [];
+  const keywords = insights?.top_keywords ?? [];
+  const meta     = insights?.scrape_meta;
 
   return (
     <main className="min-h-screen pb-20" style={{ backgroundColor: "var(--bg-base)" }}>
@@ -225,10 +203,12 @@ export default function ReportPage() {
       </nav>
 
       {/* 헤더 */}
-      <header className="border-b py-10" style={{ borderColor: "var(--border)" }}>
-        <div className="max-w-5xl mx-auto px-5">
+      <header className="border-b py-10" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-surface)" }}>
+        <div className="max-w-6xl mx-auto px-5">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
+            className="flex flex-col gap-6">
+            
+            {/* 타이틀 영역 */}
             <div>
               <div className="flex items-center gap-2.5 mb-3">
                 <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border"
@@ -248,164 +228,199 @@ export default function ReportPage() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 max-w-sm w-full md:w-auto">
-              {/* 한줄 요약 */}
-              {insights?.critic_one_liner && (
-                <div className="rounded-2xl p-5 border"
-                  style={{ backgroundColor: "rgba(99,102,241,0.06)", borderColor: "rgba(99,102,241,0.2)" }}>
-                  <p className="text-xs font-semibold mb-1.5 text-indigo-400">{t["report.ai_summary_label"]}</p>
-                  <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
-                    {insights.critic_one_liner}
+            {/* 투명성 지표 (분석 대상, 분석 방법, 수집한 데이터) */}
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl border flex flex-col gap-2" style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-1.5 font-bold text-sm mb-1 text-indigo-400">
+                  <Database size={16} /> 분석 대상
+                </div>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                  <strong>수집 기간:</strong> {meta?.date_range || "알 수 없음"}
+                </p>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                  <strong>전체 게시글:</strong> {meta?.total_posts ? `${meta.total_posts.toLocaleString()}개` : "알 수 없음"}
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl border flex flex-col gap-2" style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-1.5 font-bold text-sm mb-1 text-emerald-400">
+                  <Filter size={16} /> 분석 방법 (표본 추출)
+                </div>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                  전체 글 중 <strong>댓글 수 기준 상위 {meta?.core_posts || 100}개</strong>의 화제글만 선별하여 AI가 집중 분석했습니다. 단순 무작위 표본이 아닙니다.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl border flex flex-col gap-2" style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-1.5 font-bold text-sm mb-1 text-amber-400">
+                  <FileText size={16} /> 수집 표본 데이터 현황
+                </div>
+                <div className="text-xs space-y-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <p className="truncate" title={meta?.max_comment_post?.title}>
+                    <strong>최고 댓글수:</strong> {meta?.max_comment_post?.comment_count}개 ({meta?.max_comment_post?.title})
+                  </p>
+                  <p className="truncate" title={meta?.min_comment_post?.title}>
+                    <strong>최저 댓글수(커트라인):</strong> {meta?.min_comment_post?.comment_count}개 ({meta?.min_comment_post?.title})
                   </p>
                 </div>
-              )}
-              {/* 분석 기준 */}
-              {insights?.analysis_criteria && (
-                <div className="rounded-xl px-4 py-3 border flex flex-col gap-3"
-                  style={{ backgroundColor: "var(--bg-raised)", borderColor: "var(--border)" }}>
-                  <div className="flex gap-2 items-start">
-                    <BarChart2 size={14} className="mt-0.5 text-indigo-400 shrink-0" />
-                    <div>
-                      <p className="text-[11px] font-semibold text-indigo-400/80 mb-0.5">{t["report.criteria_label"]}</p>
-                      <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{insights.analysis_criteria}</p>
-                    </div>
-                  </div>
-                  <div className="pt-2 mt-1 border-t flex gap-2 items-start" style={{ borderColor: "rgba(99,102,241,0.15)" }}>
-                    <Info size={14} className="mt-0.5 text-indigo-400 shrink-0" />
-                    <div>
-                      <p className="text-[11px] font-semibold text-indigo-400/80 mb-0.5">{t["report.sampling_info_title"]}</p>
-                      <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                        {t["report.sampling_info_desc"].split("**").map((part, i) => i % 2 === 1 ? <strong key={i} style={{color:"var(--text-primary)"}}>{part}</strong> : part)}
-                      </p>
-                    </div>
+              </div>
+            </div>
+
+            {/* 한줄 요약 및 키워드 */}
+            <div className="p-5 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-5"
+              style={{ backgroundColor: "rgba(99,102,241,0.06)", borderColor: "rgba(99,102,241,0.2)" }}>
+              <div className="flex-1">
+                <p className="text-xs font-semibold mb-1.5 text-indigo-400">AI 한줄 요약</p>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
+                  {insights?.critic_one_liner || "분석 결과가 없습니다."}
+                </p>
+              </div>
+              
+              {keywords.length > 0 && (
+                <div className="shrink-0 flex flex-col gap-2 md:items-end">
+                  <p className="text-[11px] font-semibold text-indigo-400">핵심 떡밥 키워드</p>
+                  <div className="flex flex-wrap gap-1.5 md:justify-end">
+                    {keywords.map((kw, i) => (
+                      <span key={i} className="text-[11px] font-semibold px-2 py-0.5 rounded-full border"
+                        style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-secondary)" }}>
+                        #{kw}
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}
             </div>
-          </motion.div>
 
-          {/* 키워드 태그 */}
-          {keywords.length > 0 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
-              className="flex flex-wrap gap-2 mt-5">
-              <Tag size={13} style={{ color: "var(--text-muted)" }} className="self-center" />
-              {keywords.map((kw, i) => (
-                <span key={i} className="text-xs font-semibold px-2.5 py-1 rounded-full border"
-                  style={{ backgroundColor: "var(--bg-raised)", borderColor: "var(--border)", color: "var(--text-secondary)" }}>
-                  {kw}
-                </span>
-              ))}
-            </motion.div>
-          )}
+          </motion.div>
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-5 py-8 space-y-6">
+      <div className="max-w-6xl mx-auto px-5 py-10 space-y-10">
 
         {/* 신뢰도 알림 박스 */}
         <div className="flex items-start gap-3 p-4 rounded-xl border"
           style={{ backgroundColor: "rgba(245,158,11,0.06)", borderColor: "rgba(245,158,11,0.2)" }}>
           <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
           <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            {t["report.reliability_notice"]}
+            이 리포트는 샘플링된 <strong>핵심 화제글(최대 {meta?.core_posts || 100}개)</strong>의 내용을 바탕으로 작성되었으며, 갤러리 전체의 의견을 100% 대변하지 않을 수 있습니다. 
+            사실 확인을 위해 반드시 제공된 원문 링크를 참고하세요.
           </p>
         </div>
 
-        {/* 긍정 / 부정 여론 */}
-        <div className="grid md:grid-cols-2 gap-6">
-          <Section icon={<TrendingUp size={15} className="text-emerald-400" />} title={t["report.section_positive"]}>
-            {pos.length ? pos.map((item, i) => (
-              <SentimentCard key={i} item={item} tone="positive" readOriginal={t["report.read_original"]} />
-            )) : <Empty text={t["report.no_positive"]} />}
-          </Section>
-
-          <Section icon={<TrendingDown size={15} className="text-red-400" />} title={t["report.section_negative"]}>
-            {neg.length ? neg.map((item, i) => (
-              <SentimentCard key={i} item={item} tone="negative" readOriginal={t["report.read_original"]} />
-            )) : <Empty text={t["report.no_negative"]} />}
-          </Section>
-        </div>
-
-        {/* 주요 이슈 */}
-        {issues.length > 0 && (
-          <Section icon={<Flame size={15} className="text-orange-400" />} title={t["report.section_issues"]}>
-            <div className="space-y-3">
-              {issues.map((issue, i) => (
-                <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.06 }}
-                  className="p-4 rounded-xl border"
-                  style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)" }}>
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
-                      {issue.issue_title}
+        {/* 주요 여론 리스트 */}
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <Users size={18} className="text-emerald-400" />
+            <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>주요 여론 리스트</h2>
+          </div>
+          {opinions.length > 0 ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {opinions.map((op, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                  className="p-4 rounded-xl border flex flex-col h-full"
+                  style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}>
+                  
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-base">{op.is_positive ? "🟢" : "🔴"}</span>
+                    <span className="font-bold text-sm line-clamp-1" style={{ color: "var(--text-primary)" }} title={op.opinion_title}>
+                      {op.opinion_title}
                     </span>
-                    {issue.ref_url && (
-                      <a href={issue.ref_url} target="_blank" rel="noopener noreferrer"
-                        className="shrink-0 text-indigo-400 hover:text-indigo-300 transition-colors">
-                        <ExternalLink size={13} />
-                      </a>
-                    )}
                   </div>
-                  <p className="text-xs mb-3 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                    {issue.issue_detail}
+                  
+                  <p className="text-xs leading-relaxed mb-4 flex-1" style={{ color: "var(--text-secondary)" }}>
+                    {op.opinion_summary}
                   </p>
-                  <div>
-                    <p className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>{t["report.mention_freq"]}</p>
-                    <MentionBar score={issue.mention_score ?? 0} />
-                  </div>
+
+                  {op.related_posts && op.related_posts.length > 0 && (
+                    <div className="mt-auto pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                      <p className="text-[10px] font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>관련 게시글 레퍼런스</p>
+                      <ul className="space-y-1">
+                        {op.related_posts.map((post, j) => (
+                          <li key={j} className="flex items-start gap-1">
+                            <span className="text-[10px] text-indigo-400 mt-0.5">•</span>
+                            <a href={post.url} target="_blank" rel="noopener noreferrer"
+                              className="text-[11px] truncate hover:underline text-indigo-400 transition-colors"
+                              title={post.title}>
+                              {post.title}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </motion.div>
               ))}
             </div>
-          </Section>
-        )}
+          ) : (
+            <Empty text="감지된 주요 여론이 없습니다." />
+          )}
+        </section>
 
-        {/* 주요 동향 분석 */}
-        {Object.keys(trends).length > 0 && (
-          <Section icon={<BarChart2 size={15} className="text-violet-400" />} title={t["report.section_trends"]}>
-            <div className="grid sm:grid-cols-2 gap-3">
-              {Object.entries(trends).map(([key, cat], i) => {
-                const sty  = scoreColor(cat.score ?? 0, 10);
-                return (
-                  <motion.div key={key} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.07 }}
-                    className="p-4 rounded-xl border flex flex-col h-full"
-                    style={{ backgroundColor: sty.bg, borderColor: sty.border }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-                        {key}
-                      </span>
-                      <span className="text-xs font-black px-2 py-0.5 rounded-full shrink-0 ml-2"
-                        style={{ backgroundColor: sty.bg, color: sty.text, border: `1px solid ${sty.border}` }}>
-                        {cat.score ?? 0}/10
-                      </span>
-                    </div>
-                    {cat.summary && (
-                      <p className="text-xs leading-relaxed mb-4 flex-1" style={{ color: "var(--text-secondary)" }}>
-                        {cat.summary}
-                      </p>
-                    )}
-                    {cat.ref_title && (
-                      <div className="flex items-start gap-1.5 pt-3 border-t mt-auto" style={{ borderColor: sty.border }}>
-                        <span className="text-[11px] font-semibold shrink-0 mt-[1px]" style={{ color: "var(--text-muted)" }}>
-                          {t["report.trend_example_label"]}
+        {/* 주요 이슈 리스트 */}
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <Flame size={18} className="text-orange-400" />
+            <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>주요 이슈 리스트</h2>
+          </div>
+          {issues.length > 0 ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {issues.map((issue, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                  className="p-4 rounded-xl border flex flex-col h-full"
+                  style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}>
+                  
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded border"
+                      style={{ backgroundColor: "rgba(245,158,11,0.1)", color: "#fbbf24", borderColor: "rgba(245,158,11,0.2)" }}>
+                      {issue.issue_category}
+                    </span>
+                  </div>
+
+                  <h3 className="font-bold text-sm mb-2" style={{ color: "var(--text-primary)" }}>
+                    {issue.issue_title}
+                  </h3>
+                  
+                  {issue.issue_keywords && issue.issue_keywords.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {issue.issue_keywords.map((kw, j) => (
+                        <span key={j} className="text-[10px] text-orange-400/80 bg-orange-400/10 px-1.5 py-0.5 rounded">
+                          {kw}
                         </span>
-                        <a href={cat.ref_url || "#"} target="_blank" rel="noopener noreferrer"
-                          className="text-[13px] font-medium hover:underline flex items-start gap-1 min-w-0"
-                          style={{ color: sty.text }}>
-                          <span className="truncate leading-tight block">{cat.ref_title}</span>
-                          {cat.ref_url && <ExternalLink size={11} className="shrink-0 mt-[2px]" />}
-                        </a>
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
+                      ))}
+                    </div>
+                  )}
+
+                  <p className="text-xs leading-relaxed mb-4 flex-1" style={{ color: "var(--text-secondary)" }}>
+                    {issue.issue_summary}
+                  </p>
+
+                  {issue.related_posts && issue.related_posts.length > 0 && (
+                    <div className="mt-auto pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                      <p className="text-[10px] font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>관련 게시글 레퍼런스</p>
+                      <ul className="space-y-1">
+                        {issue.related_posts.map((post, j) => (
+                          <li key={j} className="flex items-start gap-1">
+                            <span className="text-[10px] text-orange-400 mt-0.5">•</span>
+                            <a href={post.url} target="_blank" rel="noopener noreferrer"
+                              className="text-[11px] truncate hover:underline text-orange-400 transition-colors"
+                              title={post.title}>
+                              {post.title}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
             </div>
-          </Section>
-        )}
+          ) : (
+            <Empty text="감지된 주요 이슈가 없습니다." />
+          )}
+        </section>
 
         {/* 하단 메타 */}
-        <div className="flex flex-wrap gap-4 text-xs px-5 py-4 rounded-xl border"
+        <div className="flex flex-wrap gap-4 text-xs px-5 py-4 rounded-xl border mt-10"
           style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-muted)" }}>
           <span className="flex items-center gap-1">
             <Clock size={11} />
@@ -422,52 +437,10 @@ export default function ReportPage() {
   );
 }
 
-// ── 서브 컴포넌트 ──────────────────────────────────────────────────
-function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
-  return (
-    <AnimatePresence>
-      <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl border" style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}>
-        <div className="flex items-center gap-2 px-6 py-4 border-b" style={{ borderColor: "var(--border)" }}>
-          {icon}
-          <h2 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{title}</h2>
-        </div>
-        <div className="p-4">{children}</div>
-      </motion.section>
-    </AnimatePresence>
-  );
-}
-
-function SentimentCard({ item, tone, readOriginal }: {
-  item:         SentimentItem;
-  tone:         "positive" | "negative";
-  readOriginal: string;
-}) {
-  const isPos = tone === "positive";
-  return (
-    <div className="flex items-start gap-3 p-3 rounded-xl border mb-2 last:mb-0"
-      style={{
-        backgroundColor: isPos ? "rgba(34,197,94,0.05)" : "rgba(239,68,68,0.05)",
-        borderColor:      isPos ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
-      }}>
-      <span className="text-base shrink-0 mt-0.5">{isPos ? "🟢" : "🔴"}</span>
-      <div className="min-w-0">
-        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-          {item.summary}
-        </p>
-        {item.ref_url && (
-          <a href={item.ref_url} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs mt-1.5 text-indigo-400 hover:text-indigo-300 transition-colors">
-            {readOriginal} <ExternalLink size={10} />
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function Empty({ text }: { text: string }) {
   return (
-    <p className="py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>{text}</p>
+    <div className="py-12 flex items-center justify-center rounded-xl border border-dashed" style={{ borderColor: "var(--border)" }}>
+      <p className="text-sm" style={{ color: "var(--text-muted)" }}>{text}</p>
+    </div>
   );
 }

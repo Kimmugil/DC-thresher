@@ -363,14 +363,9 @@ def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_des
 - analysis_criteria: 50자 이내 (예: 최근 7일간 일평균 250개 중 상위 50개 집중 분석)
 - critic_one_liner : 50자 이내, 이모지 1개 포함, 현상 서술형
 - summary (모든 필드): 80자 이내
-- issue_title      : 15자 이내
-- issue_detail     : 80자 이내
-- ref_title        : 데이터에 존재하는 실제 원본 게시글의 정확한 제목 (절대 창작 금지)
-- top_keywords     : 정확히 5개, 각 10자 이내
-- positive 배열    : 유저가 게임/운영에 만족한 내용 상위 3개만 (유저들끼리의 단합 등은 긍정이 아님)
-- negative 배열    : 유저가 게임/운영에 불만한 내용 상위 3개만
-- major_issues 배열: 상위 5개만
-- ref_url          : 실제 URL이 있을 때만 포함, 없으면 빈 문자열
+- public_opinions 배열 : 1~4개. 긍정/부정 여론 통합. (유저 입장의 긍정/부정 판단)
+- major_issues 배열    : 1~4개. 주요 이슈 리스트.
+- related_posts 배열   : 각 항목당 1~3개. 실제 원본 게시글의 정확한 제목과 URL 사용 (절대 창작 금지)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 점수 기준
@@ -385,20 +380,27 @@ def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_des
   "analysis_criteria": "분석 기준 및 데이터 기간 명시 (50자 이내)",
   "critic_one_liner": "이모지+현상서술 50자이내",
   "top_keywords": ["키워드1","키워드2","키워드3","키워드4","키워드5"],
-  "sentiment_summary": {{
-    "positive": [{{"summary": "80자이내","ref_url": ""}}],
-    "negative": [{{"summary": "80자이내","ref_url": ""}}]
-  }},
-  "major_issues": [
-    {{"issue_title":"15자이내","issue_detail":"80자이내","mention_score":0,"ref_url":""}}
+  "public_opinions": [
+    {{
+      "opinion_title": "15자이내",
+      "opinion_summary": "80자이내",
+      "is_positive": true,
+      "related_posts": [
+        {{"title": "실제원문제목", "url": "실제원문url"}}
+      ]
+    }}
   ],
-  "trend_analysis": {{
-    "동향카테고리1(예: 게임플레이/업데이트/운영 등 AI가 유동적으로 결정)": {{"score":0,"summary":"80자이내","ref_title":"실제원문제목","ref_url":""}},
-    "동향카테고리2": {{"score":0,"summary":"80자이내","ref_title":"실제원문제목","ref_url":""}},
-    "동향카테고리3": {{"score":0,"summary":"80자이내","ref_title":"실제원문제목","ref_url":""}},
-    "동향카테고리4": {{"score":0,"summary":"80자이내","ref_title":"실제원문제목","ref_url":""}},
-    "동향카테고리5": {{"score":0,"summary":"80자이내","ref_title":"실제원문제목","ref_url":""}}
-  }}
+  "major_issues": [
+    {{
+      "issue_title": "15자이내",
+      "issue_category": "운영 대응, 밸런스, BM 등",
+      "issue_keywords": ["키워드1", "키워드2"],
+      "issue_summary": "80자이내",
+      "related_posts": [
+        {{"title": "실제원문제목", "url": "실제원문url"}}
+      ]
+    }}
+  ]
 }}
 
 [분석 표본 게시글]
