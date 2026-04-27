@@ -367,8 +367,8 @@ def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_des
 - issue_detail     : 80자 이내
 - ref_title        : 데이터에 존재하는 실제 원본 게시글의 정확한 제목 (절대 창작 금지)
 - top_keywords     : 정확히 5개, 각 10자 이내
-- positive 배열    : 중요도 상위 3개만
-- negative 배열    : 중요도 상위 3개만
+- positive 배열    : 유저가 게임/운영에 만족한 내용 상위 3개만 (유저들끼리의 단합 등은 긍정이 아님)
+- negative 배열    : 유저가 게임/운영에 불만한 내용 상위 3개만
 - major_issues 배열: 상위 5개만
 - ref_url          : 실제 URL이 있을 때만 포함, 없으면 빈 문자열
 
