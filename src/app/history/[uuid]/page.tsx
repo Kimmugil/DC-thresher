@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Loader2, Calendar, AlertTriangle,
   CheckCircle2, Clock, TrendingUp, TrendingDown,
-  ExternalLink, Tag, Flame, BarChart2,
+  ExternalLink, Tag, Flame, BarChart2, Info
 } from "lucide-react";
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
@@ -261,12 +261,23 @@ export default function ReportPage() {
               )}
               {/* 분석 기준 */}
               {insights?.analysis_criteria && (
-                <div className="rounded-xl px-4 py-3 border flex gap-2 items-start"
+                <div className="rounded-xl px-4 py-3 border flex flex-col gap-3"
                   style={{ backgroundColor: "var(--bg-raised)", borderColor: "var(--border)" }}>
-                  <BarChart2 size={14} className="mt-0.5 text-indigo-400 shrink-0" />
-                  <div>
-                    <p className="text-[11px] font-semibold text-indigo-400/80 mb-0.5">{t["report.criteria_label"]}</p>
-                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{insights.analysis_criteria}</p>
+                  <div className="flex gap-2 items-start">
+                    <BarChart2 size={14} className="mt-0.5 text-indigo-400 shrink-0" />
+                    <div>
+                      <p className="text-[11px] font-semibold text-indigo-400/80 mb-0.5">{t["report.criteria_label"]}</p>
+                      <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{insights.analysis_criteria}</p>
+                    </div>
+                  </div>
+                  <div className="pt-2 mt-1 border-t flex gap-2 items-start" style={{ borderColor: "rgba(99,102,241,0.15)" }}>
+                    <Info size={14} className="mt-0.5 text-indigo-400 shrink-0" />
+                    <div>
+                      <p className="text-[11px] font-semibold text-indigo-400/80 mb-0.5">{t["report.sampling_info_title"]}</p>
+                      <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                        {t["report.sampling_info_desc"].split("**").map((part, i) => i % 2 === 1 ? <strong key={i} style={{color:"var(--text-primary)"}}>{part}</strong> : part)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -290,6 +301,15 @@ export default function ReportPage() {
       </header>
 
       <div className="max-w-5xl mx-auto px-5 py-8 space-y-6">
+
+        {/* 신뢰도 알림 박스 */}
+        <div className="flex items-start gap-3 p-4 rounded-xl border"
+          style={{ backgroundColor: "rgba(245,158,11,0.06)", borderColor: "rgba(245,158,11,0.2)" }}>
+          <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            {t["report.reliability_notice"]}
+          </p>
+        </div>
 
         {/* 긍정 / 부정 여론 */}
         <div className="grid md:grid-cols-2 gap-6">

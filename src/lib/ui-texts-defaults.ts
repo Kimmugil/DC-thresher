@@ -74,4 +74,7 @@ export const DEFAULT_TEXTS: Record<string, string> = {
   "report.req_id_label":            "요청 ID",
   "report.trend_example_label":     "관련 게시글:",
   "report.criteria_label":          "분석 기준:",
+  "report.sampling_info_title":     "데이터 샘플링 기준 안내",
+  "report.sampling_info_desc":      "정확하고 효율적인 AI 분석을 위해, 전체 기간 중 단순 수집된 글이 아닌 **댓글 수가 가장 많고 화제가 된 상위 50개의 핵심 게시글**만을 선별하여 집중 분석합니다. (무작위 표본이 아님)",
+  "report.reliability_notice":      "이 리포트는 샘플링된 핵심 게시글(최대 50개)을 바탕으로 작성되었으며, 갤러리 전체의 의견을 100% 대변하지 않을 수 있습니다.",
 };
