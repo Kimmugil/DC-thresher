@@ -360,7 +360,7 @@ def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_des
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📐 필드별 길이/수량 제한 (엄수)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- critic_one_liner  : 50자 이내, 이모지 1개 포함, 현상 서술형
+- critic_one_liner  : 80자 이내, 이모지 없음. 지금 갤러리에서 무엇이 주요 이슈이고 어떤 상황인지 한 문장으로 서술. 예: '운영 불신과 버그 논란이 겹치는 상황에서 반주년 이벤트 차별 이슈가 터지며 환불 요구 목소리가 급증 중'
 - issue_summary     : 80자 이내
 - major_issues 배열 : 4~6개. 갤러리에서 실제 논의된 주요 이슈만.
 - positive_posts    : 각 이슈당 0~2개. 해당 이슈에 긍정적인 원본 게시글.
@@ -378,7 +378,7 @@ def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_des
 📋 출력 JSON 스키마
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{
-  "critic_one_liner": "이모지+현상서술 50자이내",
+  "critic_one_liner": "이모지없이 지금 주요이슈와 상황 서술 80자이내",
   "top_keywords": ["키워드1","키워드2","키워드3","키워드4","키워드5"],
   "overall_sentiment": {{"positive": 30, "negative": 70}},
   "major_issues": [

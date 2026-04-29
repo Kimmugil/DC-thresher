@@ -274,34 +274,34 @@ export default function ReportPage() {
                 <div className="flex items-center gap-2 font-black text-sm mb-1" style={{ color: "#1A1A1A" }}>
                   <FileText size={15} /> 표본 데이터 현황 (댓글수 기준)
                 </div>
-                <p className="text-sm flex items-baseline gap-1 flex-wrap" style={{ color: "#4A4A4A" }}>
-                  <span className="shrink-0">최고 댓글수: {meta?.max_comment_post?.comment_count ?? "-"}개</span>
+                {/* 최고 댓글수 */}
+                <div className="text-sm space-y-0.5">
+                  <span style={{ color: "#4A4A4A" }}>최고 댓글수: <strong>{meta?.max_comment_post?.comment_count ?? "-"}개</strong></span>
                   {meta?.max_comment_post && (
                     meta.max_comment_post.url
                       ? <a href={meta.max_comment_post.url} target="_blank" rel="noopener noreferrer"
-                          className="truncate max-w-[200px] hover:underline flex items-center gap-0.5"
-                          style={{ color: "#4D96FF" }} title={meta.max_comment_post.title}>
-                          ({meta.max_comment_post.title}) <ExternalLink size={10} className="shrink-0" />
+                          className="flex items-start gap-0.5 hover:underline break-keep"
+                          style={{ color: "#4D96FF" }}>
+                          <span className="break-words min-w-0">↳ {meta.max_comment_post.title}</span>
+                          <ExternalLink size={10} className="shrink-0 mt-0.5" />
                         </a>
-                      : <span className="truncate max-w-[200px]" title={meta.max_comment_post.title}>
-                          ({meta.max_comment_post.title})
-                        </span>
+                      : <p className="break-words" style={{ color: "#9CA3AF" }}>↳ {meta.max_comment_post.title}</p>
                   )}
-                </p>
-                <p className="text-sm flex items-baseline gap-1 flex-wrap" style={{ color: "#4A4A4A" }}>
-                  <span className="shrink-0">커트라인: {meta?.min_comment_post?.comment_count ?? "-"}개</span>
+                </div>
+                {/* 커트라인 */}
+                <div className="text-sm space-y-0.5">
+                  <span style={{ color: "#4A4A4A" }}>커트라인: <strong>{meta?.min_comment_post?.comment_count ?? "-"}개</strong></span>
                   {meta?.min_comment_post && (
                     meta.min_comment_post.url
                       ? <a href={meta.min_comment_post.url} target="_blank" rel="noopener noreferrer"
-                          className="truncate max-w-[200px] hover:underline flex items-center gap-0.5"
-                          style={{ color: "#4D96FF" }} title={meta.min_comment_post.title}>
-                          ({meta.min_comment_post.title}) <ExternalLink size={10} className="shrink-0" />
+                          className="flex items-start gap-0.5 hover:underline break-keep"
+                          style={{ color: "#4D96FF" }}>
+                          <span className="break-words min-w-0">↳ {meta.min_comment_post.title}</span>
+                          <ExternalLink size={10} className="shrink-0 mt-0.5" />
                         </a>
-                      : <span className="truncate max-w-[200px]" title={meta.min_comment_post.title}>
-                          ({meta.min_comment_post.title})
-                        </span>
+                      : <p className="break-words" style={{ color: "#9CA3AF" }}>↳ {meta.min_comment_post.title}</p>
                   )}
-                </p>
+                </div>
               </div>
 
             </div>
