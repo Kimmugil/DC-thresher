@@ -16,6 +16,7 @@ export default function AdminPage() {
 
   const [reports,        setReports]        = useState<any[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
+  const [actionLoading,  setActionLoading]  = useState<number | null>(null); // 진행 중인 rowIndex
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,11 +49,24 @@ export default function AdminPage() {
 
   const handleAction = async (rowIndex: number, action: "HIDE" | "SHOW" | "DELETE") => {
     if (action === "DELETE" && !confirm(t["admin.delete_confirm"])) return;
+    setActionLoading(rowIndex);
+    setError("");
+    // 낙관적 업데이트 — 서버 응답 전 UI 즉시 반영
+    if (action === "HIDE" || action === "SHOW") {
+      setReports(prev => prev.map(r =>
+        r.index === rowIndex ? { ...r, hidden: action === "HIDE" } : r
+      ));
+    }
     try {
-      await axios.post("/api/admin/reports", { rowIndex, action });
-      fetchReports();
-    } catch {
-      alert(t["admin.error_action"]);
+      const res = await axios.post("/api/admin/reports", { rowIndex, action });
+      if (!res.data.ok) throw new Error(res.data.message || "작업 실패");
+      fetchReports(); // 서버 상태로 동기화
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || t["admin.error_action"];
+      setError(`[rowIndex ${rowIndex}] ${msg}`);
+      fetchReports(); // 낙관적 업데이트 롤백
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -214,11 +228,14 @@ export default function AdminPage() {
                       <div className="inline-flex items-center gap-2">
                         <button
                           onClick={() => handleAction(r.index, r.hidden ? "SHOW" : "HIDE")}
+                          disabled={actionLoading === r.index}
                           className="neo-button flex items-center gap-1 px-3 py-1.5 text-xs"
-                          style={{ backgroundColor: "#F0EFEC", color: "#1A1A1A" }}
+                          style={{ backgroundColor: "#F0EFEC", color: "#1A1A1A", opacity: actionLoading === r.index ? 0.5 : 1 }}
                           title={r.hidden ? t["admin.show_title"] : t["admin.hide_title"]}
                         >
-                          {r.hidden ? <Eye size={12} /> : <EyeOff size={12} />}
+                          {actionLoading === r.index
+                            ? <Loader2 size={12} className="animate-spin" />
+                            : r.hidden ? <Eye size={12} /> : <EyeOff size={12} />}
                           {r.hidden ? t["admin.show_btn"] : t["admin.hide_btn"]}
                         </button>
                       </div>

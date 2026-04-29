@@ -54,7 +54,9 @@ export async function POST(req: Request) {
   const credentialsEnv = process.env.GOOGLE_SHEETS_CREDENTIALS;
   const sheetId        = process.env.GOOGLE_SPREADSHEET_ID;
 
-  if (!credentialsEnv || !sheetId) return NextResponse.json({ ok: false }, { status: 500 });
+  if (!credentialsEnv || !sheetId) {
+    return NextResponse.json({ ok: false, message: "서버 설정 오류" }, { status: 500 });
+  }
 
   try {
     const credentials = JSON.parse(credentialsEnv);
@@ -67,24 +69,53 @@ export async function POST(req: Request) {
     const doc = new GoogleSpreadsheet(sheetId, auth);
     await doc.loadInfo();
     const sheet = doc.sheetsByTitle['Reports'] || doc.sheetsByIndex[0];
-    const rows = await sheet.getRows();
+    const rows  = await sheet.getRows();
 
     const row = rows[rowIndex];
-    if (!row) return NextResponse.json({ ok: false, message: "Row not found" }, { status: 404 });
-
-    if (action === 'HIDE') {
-      row.set('Hidden', 'TRUE');
-      await row.save();
-    } else if (action === 'SHOW') {
-      row.set('Hidden', 'FALSE');
-      await row.save();
-    } else if (action === 'DELETE') {
-      await row.delete();
+    if (!row) {
+      return NextResponse.json(
+        { ok: false, message: `Row ${rowIndex} not found (total: ${rows.length})` },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json({ ok: true });
+    if (action === 'DELETE') {
+      await row.delete();
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === 'HIDE' || action === 'SHOW') {
+      // Hidden 컬럼이 없으면 자동으로 추가
+      await sheet.loadHeaderRow();
+      const headers: string[] = [...sheet.headerValues];
+      let hiddenColIdx = headers.indexOf('Hidden');
+
+      if (hiddenColIdx === -1) {
+        hiddenColIdx = headers.length;
+        await sheet.setHeaderRow([...headers, 'Hidden']);
+      }
+
+      // row.set + save 대신 셀 직접 업데이트 (컬럼 인식 문제 우회)
+      const rowNum = row.rowNumber; // 1-based 시트 행 번호
+      await sheet.loadCells({
+        startRowIndex:    rowNum - 1,
+        endRowIndex:      rowNum,
+        startColumnIndex: hiddenColIdx,
+        endColumnIndex:   hiddenColIdx + 1,
+      });
+
+      const cell = sheet.getCell(rowNum - 1, hiddenColIdx);
+      cell.value  = action === 'HIDE' ? 'TRUE' : 'FALSE';
+      await sheet.saveUpdatedCells();
+
+      return NextResponse.json({ ok: true });
+    }
+
+    return NextResponse.json({ ok: false, message: "알 수 없는 액션" }, { status: 400 });
+
   } catch (error: unknown) {
-    console.error("Admin Action Error:", error);
-    return NextResponse.json({ ok: false, message: "작업 실패" }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Admin Action Error:", msg);
+    return NextResponse.json({ ok: false, message: msg }, { status: 500 });
   }
 }
