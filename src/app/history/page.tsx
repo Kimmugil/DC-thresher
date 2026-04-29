@@ -139,11 +139,17 @@ export default function HistoryPage() {
                           style={{ color: "#1A1A1A" }}>
                           {report.gameName || t["history.loading_game"]}
                         </p>
-                        <p className="text-sm flex items-center gap-1 mt-0.5 truncate"
-                          style={{ color: "#9CA3AF" }}>
-                          <Gamepad2 size={12} />
-                          {report.galleryName || t["history.loading_gallery"]}
-                        </p>
+                        {(report as any).oneLiner ? (
+                          <p className="text-xs mt-0.5 line-clamp-1" style={{ color: "#4A4A4A" }}>
+                            {(report as any).oneLiner}
+                          </p>
+                        ) : (
+                          <p className="text-sm flex items-center gap-1 mt-0.5 truncate"
+                            style={{ color: "#9CA3AF" }}>
+                            <Gamepad2 size={12} />
+                            {report.galleryName || t["history.loading_gallery"]}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0 ml-4">

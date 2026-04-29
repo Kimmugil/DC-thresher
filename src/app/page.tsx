@@ -251,7 +251,7 @@ export default function Home() {
                     transition={{ type: "spring", stiffness: 300, damping: 20 }}
                     className="neo-card p-4 cursor-pointer"
                   >
-                    <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-start justify-between gap-2 mb-2">
                       <span className="font-black text-sm leading-snug line-clamp-2"
                         style={{ color: "#1A1A1A" }}>{name}</span>
                       <span
@@ -260,6 +260,11 @@ export default function Home() {
                         <Icon size={10} />{cfg.label}
                       </span>
                     </div>
+                    {r.oneLiner && (
+                      <p className="text-xs leading-relaxed mb-2 line-clamp-2" style={{ color: "#4A4A4A" }}>
+                        {r.oneLiner}
+                      </p>
+                    )}
                     <p className="text-xs" style={{ color: "#9CA3AF" }}>
                       {new Date(r.requestedAt).toLocaleString("ko-KR", {
                         month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
