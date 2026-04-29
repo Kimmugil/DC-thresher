@@ -42,18 +42,20 @@ function parseGalleries(html: string): GalleryResult[] {
 
   // DC Inside 갤러리 검색 결과 페이지에서 갤러리 링크+이름 추출
   // 패턴: href="...dcinside.com/(mgallery/|mini/)?board/lists/?id=<ID>..." 와 인접 텍스트
-  const linkRe = /href="https?:\/\/gall\.dcinside\.com\/(mgallery\/|mini\/)?board\/lists\/?\?(?:[^"]*[?&])?id=([a-zA-Z0-9_]+)[^"]*"[^>]*>([^<]{1,60})<\/a>/g;
+  // 내부에 <span> 등 중첩 태그가 있을 수 있으므로 [\s\S]*? 로 캡처 후 태그 제거
+  const linkRe = /href="https?:\/\/gall\.dcinside\.com\/(mgallery\/|mini\/)?board\/lists\/?\?(?:[^"]*[?&])?id=([a-zA-Z0-9_]+)[^"]*"[^>]*>([\s\S]*?)<\/a>/g;
 
   let m: RegExpExecArray | null;
   while ((m = linkRe.exec(html)) !== null) {
     const prefix = m[1] ?? '';
     const id     = m[2];
-    const rawName = m[3].trim().replace(/\s+/g, ' ');
+    // 중첩 태그 제거 후 텍스트만 추출
+    const rawName = m[3].replace(/<[^>]+>/g, '').trim().replace(/\s+/g, ' ');
 
     // 노이즈 필터
     if (!id || !rawName || seen.has(id)) continue;
-    if (rawName.length < 2 || /^[\s\d]+$/.test(rawName)) continue;
-    if (/전체글|더보기|목록|검색|바로가기/.test(rawName)) continue;
+    if (rawName.length < 2 || rawName.length > 60 || /^[\s\d]+$/.test(rawName)) continue;
+    if (/전체글|더보기|목록|검색|바로가기|로그인|회원가입/.test(rawName)) continue;
 
     seen.add(id);
     const type: GalleryResult['type'] = prefix === 'mgallery/' ? 'minor'
