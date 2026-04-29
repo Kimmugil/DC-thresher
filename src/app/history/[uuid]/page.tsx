@@ -559,36 +559,54 @@ function Empty({ text }: { text: string }) {
 function DailyTrendChart({ data }: { data: Record<string, number> }) {
   const entries = Object.entries(data).sort(([a], [b]) => a.localeCompare(b));
   const max     = Math.max(...entries.map(([, v]) => v), 1);
-  const mid     = entries[Math.floor(entries.length / 2)]?.[0].slice(5);
+
+  // 30일 이상이면 격일로 날짜 레이블 표시
+  const showDateEvery = entries.length > 20 ? 3 : entries.length > 14 ? 2 : 1;
 
   return (
     <div>
-      {/* 높이 고정 컨테이너 — 각 column이 h-full을 쓸 수 있도록 */}
-      <div className="flex gap-0.5 h-28">
-        {entries.map(([date, count]) => (
-          <div key={date} className="flex-1 h-full relative group min-w-0">
-            {/* 툴팁 */}
-            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white
-              text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100
-              transition-opacity pointer-events-none z-10 font-bold text-center">
-              {date.slice(5)}<br />{count}개
+      {/* 바 영역 — 수치 레이블 공간 확보를 위해 h-36 */}
+      <div className="flex gap-0.5 h-36">
+        {entries.map(([date, count]) => {
+          const heightPct = Math.max((count / max) * 100, 3);
+          const label     = count >= 1000
+            ? `${Math.round(count / 100) / 10}k`
+            : String(count);
+          return (
+            <div key={date} className="flex-1 h-full relative min-w-0">
+              {/* 항상 보이는 수치 */}
+              <span
+                className="absolute left-0 right-0 text-center font-bold leading-none truncate px-px"
+                style={{
+                  bottom:    `calc(${heightPct}% + 4px)`,
+                  fontSize:  9,
+                  color:     "#6B7280",
+                }}
+              >
+                {label}
+              </span>
+              {/* 바 */}
+              <div
+                className="absolute bottom-0 left-0 right-0 rounded-t-sm"
+                style={{ height: `${heightPct}%`, backgroundColor: "#D1D5DB" }}
+              />
             </div>
-            {/* 바: 아래에서 위로 성장 */}
-            <div
-              className="absolute bottom-0 left-0 right-0 rounded-t-sm"
-              style={{
-                height:          `${Math.max((count / max) * 100, 3)}%`,
-                backgroundColor: "#C8C8C8",
-              }}
-            />
+          );
+        })}
+      </div>
+
+      {/* X축 — 모든 날짜 (밀도 높으면 격일) */}
+      <div className="flex gap-0.5 mt-1.5">
+        {entries.map(([date], i) => (
+          <div key={date} className="flex-1 min-w-0 text-center overflow-hidden">
+            <span
+              className="block truncate"
+              style={{ fontSize: 9, color: i % showDateEvery === 0 ? "#9CA3AF" : "transparent" }}
+            >
+              {date.slice(5)}
+            </span>
           </div>
         ))}
-      </div>
-      {/* X축: 첫날 / 중간 / 마지막날 */}
-      <div className="flex justify-between mt-2 text-xs" style={{ color: "#9CA3AF" }}>
-        <span>{entries[0]?.[0].slice(5)}</span>
-        {entries.length > 2 && <span>{mid}</span>}
-        <span>{entries[entries.length - 1]?.[0].slice(5)}</span>
       </div>
     </div>
   );
