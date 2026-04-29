@@ -355,7 +355,7 @@ export default function ReportPage() {
           </p>
 
           {issues.length > 0 ? (
-            <div className="grid md:grid-cols-2 gap-5 items-start">
+            <div className="grid md:grid-cols-2 gap-5">
               {[...issues]
                 .sort((a, b) => (b.heat_score ?? 0) - (a.heat_score ?? 0))
                 .map((issue, i) => (
@@ -364,105 +364,115 @@ export default function ReportPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.05 }}
-                  className="neo-card neo-card-static p-5 flex flex-col gap-3"
+                  className="neo-card neo-card-static p-5 flex flex-col"
                 >
-                  {/* 헤더: 카테고리 배지 + 열기 지수 */}
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs font-black px-2.5 py-1 rounded-full border-2 shrink-0"
-                      style={{ backgroundColor: "#FAFAFA", borderColor: "#1A1A1A", color: "#1A1A1A" }}>
-                      {issue.issue_category}
-                    </span>
-                    {issue.heat_score !== undefined && (
-                      <span className="flex items-center gap-1 text-xs font-black shrink-0"
-                        style={{ color: issue.heat_score >= 60 ? "#FB923C" : "#9CA3AF" }}>
-                        <Flame size={11} /> 온도 {issue.heat_score}
+                  {/* ── 상단 영역 (flex-1 로 늘어남) ─────────────── */}
+                  <div className="flex flex-col gap-3 flex-1">
+
+                    {/* 헤더: 카테고리 배지 + 온도 지수 */}
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-black px-2.5 py-1 rounded-full border-2 shrink-0"
+                        style={{ backgroundColor: "#FAFAFA", borderColor: "#1A1A1A", color: "#1A1A1A" }}>
+                        {issue.issue_category}
                       </span>
+                      {issue.heat_score !== undefined && (
+                        <span className="flex items-center gap-1 text-xs font-black shrink-0"
+                          style={{ color: issue.heat_score >= 60 ? "#FB923C" : "#9CA3AF" }}>
+                          <Flame size={11} /> 온도 {issue.heat_score}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 이슈 제목 */}
+                    <h3 className="text-base font-black leading-snug break-keep" style={{ color: "#1A1A1A" }}>
+                      {issue.issue_title}
+                    </h3>
+
+                    {/* 키워드 태그 */}
+                    {issue.issue_keywords && issue.issue_keywords.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {issue.issue_keywords.map((kw, j) => (
+                          <span key={j} className="text-xs font-bold px-2 py-0.5 rounded-full border"
+                            style={{ backgroundColor: "#F0EFEC", borderColor: "#E2E8F0", color: "#4A4A4A" }}>
+                            {kw}
+                          </span>
+                        ))}
+                      </div>
                     )}
+
+                    {/* 이슈 요약 */}
+                    <p className="text-sm leading-relaxed" style={{ color: "#4A4A4A" }}>
+                      {issue.issue_summary}
+                    </p>
+
                   </div>
 
-                  {/* 이슈 제목 */}
-                  <h3 className="text-base font-black leading-snug break-keep" style={{ color: "#1A1A1A" }}>
-                    {issue.issue_title}
-                  </h3>
+                  {/* ── 하단 영역 (항상 카드 바닥에 고정) ─────────── */}
+                  <div className="flex flex-col gap-3 mt-4">
 
-                  {/* 키워드 태그 */}
-                  {issue.issue_keywords && issue.issue_keywords.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {issue.issue_keywords.map((kw, j) => (
-                        <span key={j} className="text-xs font-bold px-2 py-0.5 rounded-full border"
-                          style={{ backgroundColor: "#F0EFEC", borderColor: "#E2E8F0", color: "#4A4A4A" }}>
-                          {kw}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* 이슈 요약 */}
-                  <p className="text-sm leading-relaxed" style={{ color: "#4A4A4A" }}>
-                    {issue.issue_summary}
-                  </p>
-
-                  {/* ② 감성 비중 바 */}
-                  {issue.sentiment_ratio && (
-                    <div>
-                      <div className="flex items-center justify-between text-xs font-black mb-1.5">
-                        <span style={{ color: "#FF6B6B" }}>부정 {issue.sentiment_ratio.negative}%</span>
-                        <span style={{ color: "#56D0A0" }}>긍정 {issue.sentiment_ratio.positive}%</span>
-                      </div>
-                      <div className="flex h-2.5 rounded-full overflow-hidden border-2"
-                        style={{ borderColor: "#1A1A1A" }}>
-                        <div style={{ width: `${issue.sentiment_ratio.negative}%`, backgroundColor: "#FF6B6B" }} />
-                        <div style={{ width: `${issue.sentiment_ratio.positive}%`, backgroundColor: "#56D0A0" }} />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 긍정 / 부정 게시글 분리 표시 */}
-                  {((issue.negative_posts?.length ?? 0) > 0 || (issue.positive_posts?.length ?? 0) > 0) && (
-                    <div className="grid grid-cols-2 gap-3 pt-3 border-t-2" style={{ borderColor: "#E2E8F0" }}>
-
-                      {/* 부정 게시글 */}
+                    {/* 감성 비중 바 */}
+                    {issue.sentiment_ratio && (
                       <div>
-                        {(issue.negative_posts?.length ?? 0) > 0 && (
-                          <>
-                            <p className="text-xs font-black mb-1.5" style={{ color: "#FF6B6B" }}>부정</p>
-                            <ul className="space-y-1">
-                              {issue.negative_posts!.map((post, j) => (
-                                <li key={j}>
-                                  <a href={post.url} target="_blank" rel="noopener noreferrer"
-                                    className="text-xs block truncate font-semibold hover:underline"
-                                    style={{ color: "#4D96FF" }} title={post.title}>
-                                    · {post.title}
-                                  </a>
-                                </li>
-                              ))}
-                            </ul>
-                          </>
-                        )}
+                        <div className="flex items-center justify-between text-xs font-black mb-1.5">
+                          <span style={{ color: "#FF6B6B" }}>부정 {issue.sentiment_ratio.negative}%</span>
+                          <span style={{ color: "#56D0A0" }}>긍정 {issue.sentiment_ratio.positive}%</span>
+                        </div>
+                        <div className="flex h-2.5 rounded-full overflow-hidden border-2"
+                          style={{ borderColor: "#1A1A1A" }}>
+                          <div style={{ width: `${issue.sentiment_ratio.negative}%`, backgroundColor: "#FF6B6B" }} />
+                          <div style={{ width: `${issue.sentiment_ratio.positive}%`, backgroundColor: "#56D0A0" }} />
+                        </div>
                       </div>
+                    )}
 
-                      {/* 긍정 게시글 */}
-                      <div>
-                        {(issue.positive_posts?.length ?? 0) > 0 && (
-                          <>
-                            <p className="text-xs font-black mb-1.5" style={{ color: "#56D0A0" }}>긍정</p>
-                            <ul className="space-y-1">
-                              {issue.positive_posts!.map((post, j) => (
-                                <li key={j}>
-                                  <a href={post.url} target="_blank" rel="noopener noreferrer"
-                                    className="text-xs block truncate font-semibold hover:underline"
-                                    style={{ color: "#4D96FF" }} title={post.title}>
-                                    · {post.title}
-                                  </a>
-                                </li>
-                              ))}
-                            </ul>
-                          </>
-                        )}
+                    {/* 긍정 / 부정 게시글 */}
+                    {((issue.negative_posts?.length ?? 0) > 0 || (issue.positive_posts?.length ?? 0) > 0) && (
+                      <div className="grid grid-cols-2 gap-3 pt-3 border-t-2" style={{ borderColor: "#E2E8F0" }}>
+
+                        {/* 부정 게시글 */}
+                        <div>
+                          {(issue.negative_posts?.length ?? 0) > 0 && (
+                            <>
+                              <p className="text-xs font-black mb-1.5" style={{ color: "#FF6B6B" }}>부정</p>
+                              <ul className="space-y-1">
+                                {issue.negative_posts!.map((post, j) => (
+                                  <li key={j}>
+                                    <a href={post.url} target="_blank" rel="noopener noreferrer"
+                                      className="text-xs block break-keep font-semibold hover:underline"
+                                      style={{ color: "#4D96FF" }} title={post.title}>
+                                      · {post.title}
+                                    </a>
+                                  </li>
+                                ))}
+                              </ul>
+                            </>
+                          )}
+                        </div>
+
+                        {/* 긍정 게시글 */}
+                        <div>
+                          {(issue.positive_posts?.length ?? 0) > 0 && (
+                            <>
+                              <p className="text-xs font-black mb-1.5" style={{ color: "#56D0A0" }}>긍정</p>
+                              <ul className="space-y-1">
+                                {issue.positive_posts!.map((post, j) => (
+                                  <li key={j}>
+                                    <a href={post.url} target="_blank" rel="noopener noreferrer"
+                                      className="text-xs block break-keep font-semibold hover:underline"
+                                      style={{ color: "#4D96FF" }} title={post.title}>
+                                      · {post.title}
+                                    </a>
+                                  </li>
+                                ))}
+                              </ul>
+                            </>
+                          )}
+                        </div>
+
                       </div>
+                    )}
 
-                    </div>
-                  )}
+                  </div>
                 </motion.div>
               ))}
             </div>
