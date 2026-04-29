@@ -60,25 +60,13 @@ export default function Navigation() {
           </div>
         </div>
 
-        {/* 관리자 — 우측 분리 */}
+        {/* 관리자 — 우측, neo-button 규칙 동일 적용 */}
         <Link
           href="/admin"
-          className="flex items-center gap-1.5 px-3 py-1 text-sm rounded-lg border transition-colors"
+          className="neo-button flex items-center gap-1.5 px-3 py-1.5 text-sm"
           style={{
-            borderColor: isActive("/admin") ? "#1A1A1A" : "#E2E8F0",
-            color: isActive("/admin") ? "#1A1A1A" : "#9CA3AF",
-            fontWeight: isActive("/admin") ? 700 : 400,
-            backgroundColor: isActive("/admin") ? "#F0EFEC" : "transparent",
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.borderColor = "#1A1A1A";
-            (e.currentTarget as HTMLElement).style.color = "#1A1A1A";
-          }}
-          onMouseLeave={e => {
-            if (!isActive("/admin")) {
-              (e.currentTarget as HTMLElement).style.borderColor = "#E2E8F0";
-              (e.currentTarget as HTMLElement).style.color = "#9CA3AF";
-            }
+            backgroundColor: isActive("/admin") ? "#1A1A1A" : "#F0EFEC",
+            color:           isActive("/admin") ? "#FFFFFF"  : "#1A1A1A",
           }}
         >
           <Settings size={14} />
