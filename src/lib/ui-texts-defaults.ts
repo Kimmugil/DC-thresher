@@ -102,6 +102,8 @@ export const DEFAULT_TEXTS: Record<string, string> = {
   "report.period_row2_period":      "최근 14일",
   "report.period_row3_cond":        "49개 이하",
   "report.period_row3_period":      "최근 30일",
+  "report.top_posts_section_title": "화제글 TOP 5",
+  "report.top_posts_section_desc":  "기간 내 댓글이 가장 많이 달린 게시글",
   "report.section_positive":        "긍정 여론",
   "report.section_negative":        "부정 여론",
   "report.section_issues":          "주요 이슈 리스트",

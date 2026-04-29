@@ -339,7 +339,7 @@ def build_diagnosis_ai_prompt(gallery_name, top_words, subtype_id, daily_avg):
 def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_desc,
                                 subtype_focus, analysis_focus_label,
                                 post_data_text, analysis_days, total_posts,
-                                concept_posts, date_summary):
+                                concept_posts, date_summary, top_posts_text=""):
     return f"""당신은 커뮤니티 데이터 분석 전문가입니다.
 아래 게시글 데이터를 바탕으로 '{game_name}' 갤러리의 현황을 분석하십시오.
 오직 주어진 데이터에 근거한 팩트만 작성하십시오.
@@ -396,8 +396,26 @@ def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_des
         {{"title": "실제원문제목", "url": "실제원문url"}}
       ]
     }}
+  ],
+  "top_posts": [
+    {{
+      "title": "아래 [화제글 TOP 5]의 원문 제목 그대로 복사",
+      "url": "아래 [화제글 TOP 5]의 원문 URL 그대로 복사",
+      "comment_count": 1875,
+      "date": "2026-04-23",
+      "related_issue": "위 major_issues의 issue_title 중 가장 연관성 높은 것. 명확하지 않으면 null"
+    }}
   ]
 }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💬 화제글 TOP 5 (related_issue 태깅 필요)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+댓글 수 상위 5개 게시글입니다. title·url·comment_count·date는 아래 원문 그대로 복사하고,
+위에서 분석한 major_issues의 issue_title 중 가장 관련 높은 것을 related_issue에 입력하세요.
+명확히 해당하지 않으면 null로 두세요.
+
+{top_posts_text}
 
 [분석 표본 게시글]
 {post_data_text}"""

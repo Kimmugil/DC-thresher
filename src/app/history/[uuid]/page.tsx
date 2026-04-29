@@ -6,12 +6,19 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Loader2, Calendar, AlertTriangle,
   CheckCircle2, Clock, Database,
-  Flame, ExternalLink, BarChart2,
+  Flame, ExternalLink, BarChart2, MessageSquare,
 } from "lucide-react";
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
 
 interface RelatedPost { title: string; url: string; }
+interface TopPost {
+  title:         string;
+  url:           string;
+  comment_count: number;
+  date:          string;
+  related_issue: string | null;
+}
 interface MajorIssue {
   issue_title:      string;
   issue_category:   string;
@@ -35,6 +42,7 @@ interface AiInsights {
   top_keywords?:       string[];
   overall_sentiment?:  { positive: number; negative: number };
   major_issues?:       MajorIssue[];
+  top_posts?:          TopPost[];
   scrape_meta?:        ScrapeMeta;
 }
 interface ReportData {
@@ -316,6 +324,59 @@ export default function ReportPage() {
             }}
           />
         </div>
+
+        {/* ── 화제글 TOP 5 ─────────────────────────── */}
+        {(insights?.top_posts?.length ?? 0) > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-1">
+              <MessageSquare size={18} style={{ color: "#1A1A1A" }} />
+              <h2 className="text-xl font-black" style={{ color: "#1A1A1A" }}>
+                {t["report.top_posts_section_title"]}
+              </h2>
+            </div>
+            <p className="text-xs mb-5" style={{ color: "#9CA3AF" }}>
+              {t["report.top_posts_section_desc"]}
+            </p>
+            <div className="neo-card neo-card-static overflow-hidden">
+              {insights!.top_posts!.map((post, i) => (
+                <div key={i}
+                  className="flex items-center gap-4 px-5 py-4"
+                  style={{ borderTop: i > 0 ? "1px solid #E2E8F0" : "none" }}
+                >
+                  {/* 순위 */}
+                  <span className="shrink-0 w-5 text-center font-black text-base leading-none"
+                    style={{ color: i < 3 ? "#1A1A1A" : "#C8C8C8" }}>
+                    {i + 1}
+                  </span>
+
+                  {/* 제목 + 메타 */}
+                  <div className="flex-1 min-w-0">
+                    <a href={post.url} target="_blank" rel="noopener noreferrer"
+                      className="text-sm font-black flex items-start gap-1 hover:underline"
+                      style={{ color: "#1A1A1A" }}>
+                      <span className="break-keep flex-1">{post.title}</span>
+                      <ExternalLink size={9} className="shrink-0 mt-0.5 opacity-40" />
+                    </a>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="text-xs" style={{ color: "#9CA3AF" }}>{post.date}</span>
+                      {post.related_issue && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                          style={{ borderColor: "#E2E8F0", backgroundColor: "#F0EFEC", color: "#4A4A4A" }}>
+                          {post.related_issue}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 댓글 수 */}
+                  <span className="shrink-0 text-sm font-black tabular-nums" style={{ color: "#1A1A1A" }}>
+                    💬 {post.comment_count.toLocaleString("ko-KR")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── 주요 이슈 — 2열, 감성바 + 열기지수 ───── */}
         <section>

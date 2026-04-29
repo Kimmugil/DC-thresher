@@ -70,6 +70,21 @@ def main():
     print(f"Scraping complete. Analysis count: {scrape_result['analysis_count']}")
 
     # Step 3: AI Analysis
+    # top_posts_raw는 scrape_meta 블록보다 먼저 필요하므로 미리 계산
+    _sorted_for_ai = sorted(
+        scrape_result.get("analysis_data", []),
+        key=lambda x: x.get("comment_count", 0), reverse=True
+    )
+    top_posts_for_ai = [
+        {
+            "title":         p.get("title", ""),
+            "url":           p.get("post_url", ""),
+            "comment_count": p.get("comment_count", 0),
+            "date":          p.get("date", ""),
+        }
+        for p in _sorted_for_ai[:5]
+    ]
+
     insights, error = analyze_gallery(
         gallery_id=gallery_id,
         game_name=game_name,
@@ -77,6 +92,7 @@ def main():
         analysis_data=scrape_result["analysis_data"],
         all_metas=scrape_result["all_metas"],
         analysis_days=auto_days,
+        top_posts=top_posts_for_ai,
     )
 
     if error:
@@ -91,13 +107,23 @@ def main():
     ana_data = scrape_result.get("analysis_data", [])
     if ana_data:
         s_data = sorted(ana_data, key=lambda x: x.get("comment_count", 0), reverse=True)
+
+        # 화제글 TOP 5 (댓글 수 기준, AI가 이슈 태깅에 사용)
+        top_posts_raw = [
+            {
+                "title":         p.get("title", ""),
+                "url":           p.get("post_url", ""),
+                "comment_count": p.get("comment_count", 0),
+                "date":          p.get("date", ""),
+            }
+            for p in s_data[:5]
+        ]
+
         insights["scrape_meta"] = {
             "total_posts":  scrape_result.get("total_posts", 0),
             "core_posts":   len(ana_data),
             "date_range":   scrape_result.get("date_range_str", ""),
-            # 일별 게시글 추이 차트용 (전체 수집 범위)
             "date_counts":  scrape_result.get("date_counts", {}),
-            # 표본 상·하단 게시글 (URL 포함)
             "max_comment_post": {
                 "title":         s_data[0].get("title", ""),
                 "comment_count": s_data[0].get("comment_count", 0),
@@ -108,6 +134,7 @@ def main():
                 "comment_count": s_data[-1].get("comment_count", 0),
                 "url":           s_data[-1].get("post_url", ""),
             },
+            "top_posts": top_posts_raw,
         }
 
     # Save insights

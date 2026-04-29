@@ -101,7 +101,8 @@ def _format_posts(post_data: list) -> str:
 
 def analyze_gallery(gallery_id: str, game_name: str, subtype_id: str,
                     analysis_data: list, all_metas: list,
-                    analysis_days: int, analysis_focus: str = "default") -> tuple:
+                    analysis_days: int, analysis_focus: str = "default",
+                    top_posts: list = None) -> tuple:
     from config import GALLERY_SUBTYPES, ANALYSIS_FOCUS_OPTIONS
     from collections import Counter
 
@@ -114,6 +115,17 @@ def analyze_gallery(gallery_id: str, game_name: str, subtype_id: str,
     date_cnt     = Counter(m["date"] for m in all_metas)
     sorted_dates = sorted(date_cnt.items())
     date_summary = "  ".join(f"{d}:{c}개" for d, c in sorted_dates)
+
+    # 화제글 TOP 5 텍스트 생성
+    top_posts_text = ""
+    if top_posts:
+        lines = []
+        for i, p in enumerate(top_posts, 1):
+            lines.append(
+                f"{i}. 제목: {p['title']} | 댓글: {p['comment_count']}개 | "
+                f"날짜: {p['date']} | URL: {p['url']}"
+            )
+        top_posts_text = "\n".join(lines)
 
     post_text = _format_posts(analysis_data)
     prompt    = build_main_analysis_prompt(
@@ -128,5 +140,6 @@ def analyze_gallery(gallery_id: str, game_name: str, subtype_id: str,
         total_posts=len(all_metas),
         concept_posts=sum(1 for m in all_metas if m.get("is_concept")),
         date_summary=date_summary,
+        top_posts_text=top_posts_text,
     )
     return _call_gemini(prompt, json_mode=True, timeout=120)
