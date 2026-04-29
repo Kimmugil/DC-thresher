@@ -92,11 +92,22 @@ def main():
     if ana_data:
         s_data = sorted(ana_data, key=lambda x: x.get("comment_count", 0), reverse=True)
         insights["scrape_meta"] = {
-            "total_posts": scrape_result.get("total_posts", 0),
-            "core_posts": len(ana_data),
-            "date_range": scrape_result.get("date_range_str", ""),
-            "max_comment_post": {"title": s_data[0].get("title", ""), "comment_count": s_data[0].get("comment_count", 0)},
-            "min_comment_post": {"title": s_data[-1].get("title", ""), "comment_count": s_data[-1].get("comment_count", 0)}
+            "total_posts":  scrape_result.get("total_posts", 0),
+            "core_posts":   len(ana_data),
+            "date_range":   scrape_result.get("date_range_str", ""),
+            # 일별 게시글 추이 차트용 (전체 수집 범위)
+            "date_counts":  scrape_result.get("date_counts", {}),
+            # 표본 상·하단 게시글 (URL 포함)
+            "max_comment_post": {
+                "title":         s_data[0].get("title", ""),
+                "comment_count": s_data[0].get("comment_count", 0),
+                "url":           s_data[0].get("post_url", ""),
+            },
+            "min_comment_post": {
+                "title":         s_data[-1].get("title", ""),
+                "comment_count": s_data[-1].get("comment_count", 0),
+                "url":           s_data[-1].get("post_url", ""),
+            },
         }
 
     # Save insights

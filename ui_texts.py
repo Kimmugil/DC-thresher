@@ -354,49 +354,45 @@ def build_main_analysis_prompt(gallery_id, game_name, subtype_label, subtype_des
 1. 순수 JSON만 출력. 코드블록(```) 절대 금지.
 2. JSON 텍스트 값 내 큰따옴표(") · 줄바꿈(\\n) 절대 금지. 강조는 작은따옴표(') 사용.
 3. 마크다운 기호(** ~ #) 사용 금지.
-4. 전체 응답은 반드시 15,000자 이내.
-5. [중요] ref_title과 ref_url은 반드시 주어진 데이터 원문에 있는 정확한 [제목]과 [URL]을 그대로 복사해서 사용하세요. 절대로 가짜 URL이나 제목을 지어내지 마세요. 일치하는 글이 없다면 빈 문자열("")로 남겨두세요.
+4. 전체 응답은 반드시 18,000자 이내.
+5. [중요] positive_posts/negative_posts의 title과 url은 반드시 주어진 데이터 원문의 정확한 제목과 URL을 그대로 복사하세요. 절대로 가짜 URL이나 제목을 지어내지 마세요. 일치하는 글이 없다면 빈 배열([])로 두세요.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📐 필드별 길이 제한 (엄수)
+📐 필드별 길이/수량 제한 (엄수)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- analysis_criteria: 50자 이내 (예: 최근 7일간 일평균 250개 중 상위 50개 집중 분석)
-- critic_one_liner : 50자 이내, 이모지 1개 포함, 현상 서술형
-- summary (모든 필드): 80자 이내
-- public_opinions 배열 : 1~4개. 긍정/부정 여론 통합. (유저 입장의 긍정/부정 판단)
-- major_issues 배열    : 1~4개. 주요 이슈 리스트.
-- related_posts 배열   : 각 항목당 1~3개. 실제 원본 게시글의 정확한 제목과 URL 사용 (절대 창작 금지)
+- critic_one_liner  : 50자 이내, 이모지 1개 포함, 현상 서술형
+- issue_summary     : 80자 이내
+- major_issues 배열 : 4~6개. 갤러리에서 실제 논의된 주요 이슈만.
+- positive_posts    : 각 이슈당 0~2개. 해당 이슈에 긍정적인 원본 게시글.
+- negative_posts    : 각 이슈당 0~2개. 해당 이슈에 부정적인 원본 게시글.
+- top_keywords      : 5개 고정.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 점수 기준
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- mention_score(0-100): 전체 게시글 중 해당 이슈 언급 비율
-- trend score(0-10): 키워드 언급 비율 (30%↑→7-10 / 10-30%→4-6 / 10%↓→0-3)
+- heat_score (0-100): 전체 수집 게시글 중 해당 이슈 관련 게시글 비율 (ex: 30개면 30)
+- sentiment_ratio: 해당 이슈 관련 게시글 중 긍정/부정 비중. positive+negative=100.
+- overall_sentiment: 전체 수집 게시글 전반의 긍정/부정 분위기 추정 비중. positive+negative=100.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 출력 JSON 스키마
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{
-  "analysis_criteria": "분석 기준 및 데이터 기간 명시 (50자 이내)",
   "critic_one_liner": "이모지+현상서술 50자이내",
   "top_keywords": ["키워드1","키워드2","키워드3","키워드4","키워드5"],
-  "public_opinions": [
-    {{
-      "opinion_title": "15자이내",
-      "opinion_summary": "80자이내",
-      "is_positive": true,
-      "related_posts": [
-        {{"title": "실제원문제목", "url": "실제원문url"}}
-      ]
-    }}
-  ],
+  "overall_sentiment": {{"positive": 30, "negative": 70}},
   "major_issues": [
     {{
       "issue_title": "15자이내",
-      "issue_category": "운영 대응, 밸런스, BM 등",
-      "issue_keywords": ["키워드1", "키워드2"],
-      "issue_summary": "80자이내",
-      "related_posts": [
+      "issue_category": "운영, 밸런스, BM, 콘텐츠, 커뮤니티/시스템 등",
+      "issue_keywords": ["키워드1", "키워드2", "키워드3"],
+      "issue_summary": "80자이내. 이슈의 핵심 내용과 유저 반응 서술.",
+      "heat_score": 75,
+      "sentiment_ratio": {{"positive": 20, "negative": 80}},
+      "positive_posts": [
+        {{"title": "실제원문제목", "url": "실제원문url"}}
+      ],
+      "negative_posts": [
         {{"title": "실제원문제목", "url": "실제원문url"}}
       ]
     }}
