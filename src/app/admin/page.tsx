@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, Eye, EyeOff, Trash2, ShieldCheck, Loader2, RefreshCw } from "lucide-react";
+import { Lock, Eye, EyeOff, ShieldCheck, Loader2, RefreshCw } from "lucide-react";
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
 
@@ -215,15 +215,6 @@ export default function AdminPage() {
                         >
                           {r.hidden ? <Eye size={12} /> : <EyeOff size={12} />}
                           {r.hidden ? t["admin.show_btn"] : t["admin.hide_btn"]}
-                        </button>
-                        <button
-                          onClick={() => handleAction(r.index, "DELETE")}
-                          className="neo-button flex items-center gap-1 px-3 py-1.5 text-xs"
-                          style={{ backgroundColor: "#FF6B6B", color: "#FFFFFF", borderColor: "#1A1A1A" }}
-                          title={t["admin.delete_title"]}
-                        >
-                          <Trash2 size={12} />
-                          {t["admin.delete_btn"]}
                         </button>
                       </div>
                     </td>

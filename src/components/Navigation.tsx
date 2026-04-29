@@ -62,16 +62,18 @@ export default function Navigation() {
           </div>
         </div>
 
-        {/* 관리자 — 우측, neo-button 규칙 동일 적용 */}
+        {/* 관리자 — 작고 조용하게 */}
         <Link
           href="/admin"
-          className="neo-button flex items-center gap-1.5 px-3 py-1.5 text-sm"
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors"
           style={{
-            backgroundColor: isActive("/admin") ? "#1A1A1A" : "#F0EFEC",
-            color:           isActive("/admin") ? "#FFFFFF"  : "#1A1A1A",
+            color: isActive("/admin") ? "#1A1A1A" : "#B0B0B0",
+            fontWeight: isActive("/admin") ? 900 : 500,
           }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = isActive("/admin") ? "#1A1A1A" : "#B0B0B0"; }}
         >
-          <Settings size={14} />
+          <Settings size={13} />
           <span className="hidden md:inline">{t["nav.admin"]}</span>
         </Link>
 
