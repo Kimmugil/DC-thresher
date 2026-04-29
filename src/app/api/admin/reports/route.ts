@@ -24,15 +24,23 @@ export async function GET(req: Request) {
     if (!sheet) return NextResponse.json({ reports: [] });
 
     const rows = await sheet.getRows();
-    const reports = rows.map((row, index) => ({
-      index:       index, // Row index for updates
-      uuid:        row.get('UUID')        || '',
-      status:      row.get('Status')      || 'PENDING',
-      gameName:    row.get('GameName')    || '',
-      galleryName: row.get('GalleryName') || '',
-      requestedAt: row.get('RequestedAt') || '',
-      hidden:      row.get('Hidden') === 'TRUE' || row.get('Hidden') === 'true'
-    })).reverse();
+    const reports = rows.map((row, index) => {
+      let oneLiner = '';
+      const rawInsights = row.get('AI_Insights');
+      if (rawInsights) {
+        try { oneLiner = JSON.parse(rawInsights)?.critic_one_liner || ''; } catch { /* ignore */ }
+      }
+      return {
+        index:       index,
+        uuid:        row.get('UUID')        || '',
+        status:      row.get('Status')      || 'PENDING',
+        gameName:    row.get('GameName')    || '',
+        galleryName: row.get('GalleryName') || '',
+        requestedAt: row.get('RequestedAt') || '',
+        hidden:      row.get('Hidden') === 'TRUE' || row.get('Hidden') === 'true',
+        oneLiner,
+      };
+    }).reverse();
 
     return NextResponse.json({ reports });
   } catch (error: unknown) {

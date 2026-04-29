@@ -197,6 +197,11 @@ export default function AdminPage() {
                       <p className="font-mono text-[11px]" style={{ color: "#9CA3AF" }}>
                         {r.uuid}
                       </p>
+                      {r.oneLiner && (
+                        <p className="text-xs mt-1 leading-snug" style={{ color: "#4A4A4A" }}>
+                          {r.oneLiner}
+                        </p>
+                      )}
                     </td>
 
                     {/* 요청일 */}
