@@ -91,6 +91,23 @@ body {
   }
 }
 
+/* ── 마퀴 ────────────────────────────────────────────────────────── */
+@keyframes marquee-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 20px;
+  padding: 8px 4px 20px;
+  animation: marquee-scroll linear infinite;
+  will-change: transform;
+}
+.marquee-pause:hover .marquee-track {
+  animation-play-state: paused;
+}
+
 /* ── 스크롤바 ─────────────────────────────────────────────────────── */
 * {
   scrollbar-width: thin;

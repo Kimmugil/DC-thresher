@@ -4,14 +4,15 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ArrowRight, Loader2, AlertCircle, ChevronRight, CheckCircle2, Clock, XCircle, Flame } from "lucide-react";
+import { Search, ArrowRight, Loader2, AlertCircle, ChevronRight, Flame } from "lucide-react";
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
+import ReportCard, { ReportCardData } from "@/components/ReportCard";
 
 const DC_GALLERY_URL_PATTERN =
   /^https?:\/\/gall\.dcinside\.com\/(mgallery\/|mini\/)?board\/(lists|view)\/?\?(?:[^"'<>]*[?&])?id=[a-zA-Z0-9_]+/;
 
-const CARD_ROTATIONS = [1.2, -1.0, 0.8, -1.5, 1.0, -0.8];
+const MARQUEE_MIN_CARDS = 5; // 마퀴가 끊기지 않도록 최소 카드 수
 
 // 롤링 텍스트 — 전체 줄을 블록으로 애니메이션 (좌우 이동 없음)
 function RollingGalleryName({ names, prefix }: { names: string[]; prefix: string }) {
@@ -47,23 +48,24 @@ export default function Home() {
   const router = useRouter();
   const t = useTexts();
 
-  const STATUS_CONFIG = {
-    COMPLETED: { labelKey: "status.completed", icon: CheckCircle2, color: "#166534", bg: "#56D0A0" },
-    PENDING:   { labelKey: "status.pending",   icon: Clock,        color: "#1A1A1A", bg: "#FFD600" },
-    FAILED:    { labelKey: "status.failed",    icon: XCircle,      color: "#FFFFFF", bg: "#FF6B6B" },
-  } as const;
-
   const [url, setUrl]             = useState("");
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState("");
   const [statusMsg, setStatusMsg] = useState("");
   const [recentReports, setRecentReports] = useState<any[]>([]);
 
-  const pendingReports = recentReports.filter(r => r.status === "PENDING");
-  const doneReports    = recentReports.filter(r => r.status !== "PENDING").slice(0, 6);
-  const completedNames = recentReports
-    .filter(r => r.status === "COMPLETED" && (r.gameName || r.galleryName))
-    .map(r => r.gameName || r.galleryName);
+  const pendingReports  = recentReports.filter(r => r.status === "PENDING");
+  const completedCards  = recentReports.filter(r => r.status === "COMPLETED") as ReportCardData[];
+  const completedNames  = completedCards
+    .filter(r => r.gameName || r.galleryName)
+    .map(r => `${r.gameName || r.galleryName} 갤러리`);
+
+  // 마퀴용: 화면을 채울 만큼 복제 후 2배 (seamless loop)
+  const padRepeats  = completedCards.length === 0 ? 0 : Math.ceil(MARQUEE_MIN_CARDS / completedCards.length);
+  const paddedCards = completedCards.length === 0 ? [] :
+    Array.from({ length: padRepeats }, () => completedCards).flat();
+  const marqueeCards   = [...paddedCards, ...paddedCards];
+  const marqueeDuration = `${Math.max(paddedCards.length * 5, 10)}s`;
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -226,10 +228,11 @@ export default function Home() {
         </section>
       )}
 
-      {/* ── 최근 분석 카드 ──────────────────────────────────────── */}
-      {doneReports.length > 0 && (
-        <section className="max-w-2xl mx-auto px-4 pb-20">
-          <div className="flex items-center justify-between mb-5">
+      {/* ── 최근 분석 마퀴 ──────────────────────────────────────── */}
+      {completedCards.length > 0 && (
+        <section className="pb-20">
+          {/* 헤더 */}
+          <div className="flex items-center justify-between mb-5 px-4 max-w-2xl mx-auto">
             <h2 className="text-base font-black" style={{ color: "#1A1A1A" }}>
               {t["home.recent_section_title"]}
             </h2>
@@ -240,47 +243,22 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-            {doneReports.map((r, i) => {
-              const status = r.status as keyof typeof STATUS_CONFIG;
-              const cfg    = STATUS_CONFIG[status] ?? STATUS_CONFIG.COMPLETED;
-              const Icon   = cfg.icon;
-              const name   = r.gameName || r.galleryName || "-";
-              const rot    = CARD_ROTATIONS[i % CARD_ROTATIONS.length];
-              return (
-                <Link key={r.uuid ?? i} href={`/history/${r.uuid}`}>
-                  <motion.div
-                    style={{ rotate: rot, boxShadow: "2px 2px 0px 0px #1A1A1A" }}
-                    whileHover={{ rotate: 0, y: -4 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    className="neo-card p-4 cursor-pointer"
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <span className="font-black text-sm leading-snug line-clamp-2"
-                        style={{ color: "#1A1A1A" }}>{name}</span>
-                      {/* 실패 상태만 배지 표시 — 완료는 기본값이라 생략 */}
-                      {r.status === "FAILED" && (
-                        <span
-                          className="shrink-0 flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-full border-2"
-                          style={{ backgroundColor: cfg.bg, borderColor: "#1A1A1A", color: cfg.color }}>
-                          <Icon size={10} />{t[cfg.labelKey]}
-                        </span>
-                      )}
-                    </div>
-                    {r.oneLiner && (
-                      <p className="text-xs leading-relaxed mb-2 line-clamp-2" style={{ color: "#4A4A4A" }}>
-                        {r.oneLiner}
-                      </p>
-                    )}
-                    <p className="text-xs" style={{ color: "#9CA3AF" }}>
-                      {new Date(r.requestedAt).toLocaleString("ko-KR", {
-                        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-                      })}
-                    </p>
-                  </motion.div>
-                </Link>
-              );
-            })}
+          {/* 마퀴 트랙 */}
+          <div
+            className="overflow-hidden marquee-pause"
+            style={{
+              maskImage: "linear-gradient(to right, transparent 0, black 80px, black calc(100% - 80px), transparent 100%)",
+              WebkitMaskImage: "linear-gradient(to right, transparent 0, black 80px, black calc(100% - 80px), transparent 100%)",
+            }}
+          >
+            <div
+              className="marquee-track"
+              style={{ animationDuration: marqueeDuration }}
+            >
+              {marqueeCards.map((r, i) => (
+                <ReportCard key={`${r.uuid}-${i}`} report={r} />
+              ))}
+            </div>
           </div>
         </section>
       )}

@@ -209,7 +209,7 @@ export default function ReportPage() {
           <ArrowLeft size={15} /> {t["report.back_btn"]}
         </button>
         <span className="font-black text-sm hidden sm:block" style={{ color: "#1A1A1A" }}>
-          {report?.gameName || t["report.default_title"]}
+          {report?.gameName ? `${report.gameName} 갤러리` : t["report.default_title"]}
         </span>
         <span className="font-mono text-xs" style={{ color: "#9CA3AF" }}>
           {String(uuid).slice(0, 8)}
@@ -235,7 +235,9 @@ export default function ReportPage() {
 
               {/* 게임명 h1 */}
               <h1 className="text-3xl md:text-4xl font-black mb-2" style={{ color: "#1A1A1A" }}>
-                {report?.gameName || t["report.game_unknown"]}
+                {report?.gameName
+                  ? `${report.gameName} 갤러리`
+                  : t["report.game_unknown"]}
               </h1>
 
               {/* 갤러리명 — 게임명과 다를 때만 표시 */}

@@ -35,11 +35,22 @@ export async function GET() {
     const reports = rows
       .filter(row => row.get('Hidden') !== 'TRUE' && row.get('Hidden') !== 'true')
       .map((row) => {
-        // AI_Insights JSON에서 critic_one_liner 만 추출 (목록 표시용)
-        let oneLiner = '';
+        // AI_Insights JSON에서 카드 표시용 필드 추출
+        let oneLiner  = '';
+        let dateRange = '';
+        let top3Posts: { title: string; comment_count: number }[] = [];
+
         const rawInsights = row.get('AI_Insights');
         if (rawInsights) {
-          try { oneLiner = JSON.parse(rawInsights)?.critic_one_liner || ''; } catch { /* ignore */ }
+          try {
+            const parsed = JSON.parse(rawInsights);
+            oneLiner  = parsed?.critic_one_liner || '';
+            dateRange = parsed?.scrape_meta?.date_range || '';
+            const tp  = parsed?.scrape_meta?.top_posts || [];
+            top3Posts = (tp as { title?: string; comment_count?: number }[])
+              .slice(0, 3)
+              .map(p => ({ title: p.title || '', comment_count: p.comment_count || 0 }));
+          } catch { /* ignore */ }
         }
         return {
           uuid:        row.get('UUID')        || '',
@@ -48,6 +59,8 @@ export async function GET() {
           galleryName: row.get('GalleryName') || '',
           requestedAt: row.get('RequestedAt') || '',
           oneLiner,
+          dateRange,
+          top3Posts,
         };
       })
       .reverse(); // 최신순

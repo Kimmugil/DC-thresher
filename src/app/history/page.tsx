@@ -4,21 +4,18 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-  History, ChevronRight, Calendar,
-  Gamepad2, FileText, Loader2, AlertCircle, Plus,
-  CheckCircle2, Clock, XCircle,
+  History, FileText, Loader2, AlertCircle, Plus,
+  Clock, XCircle, CheckCircle2,
 } from "lucide-react";
 import axios from "axios";
-import Link from "next/link";
 import { useTexts } from "@/components/UITextsProvider";
+import ReportCard, { ReportCardData } from "@/components/ReportCard";
 
-interface Report {
-  uuid:        string;
-  gameName:    string;
-  galleryName: string;
-  requestedAt: string;
-  status:      "PENDING" | "COMPLETED" | "FAILED";
+interface Report extends ReportCardData {
+  status: "PENDING" | "COMPLETED" | "FAILED";
 }
+
+const CARD_ROTATIONS = [1.2, -1.0, 0.8, -1.5, 1.0, -0.8];
 
 const STATUS_CONFIG = {
   COMPLETED: { labelKey: "status.completed", Icon: CheckCircle2, bg: "#56D0A0", color: "#166534" },
@@ -50,7 +47,7 @@ export default function HistoryPage() {
 
   return (
     <main style={{ backgroundColor: "#FAFAFA", minHeight: "100vh" }}>
-      <div className="max-w-3xl mx-auto px-4 py-10">
+      <div className="max-w-7xl mx-auto px-4 py-10">
 
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-8">
@@ -84,10 +81,10 @@ export default function HistoryPage() {
 
         {/* 스켈레톤 */}
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-20 rounded-2xl animate-pulse border-2"
-                style={{ backgroundColor: "#F0EFEC", borderColor: "#E2E8F0" }} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="w-full rounded-2xl animate-pulse border-2"
+                style={{ backgroundColor: "#F0EFEC", borderColor: "#E2E8F0", height: 300 }} />
             ))}
           </div>
 
@@ -113,62 +110,30 @@ export default function HistoryPage() {
           </motion.div>
 
         ) : (
-          /* 리포트 목록 */
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+          /* 카드 그리드 */
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-start"
+          >
             {reports.map((report, idx) => {
-              const cfg = STATUS_CONFIG[report.status] ?? STATUS_CONFIG.PENDING;
-              const Icon = cfg.Icon;
+              const rot = report.status === "COMPLETED"
+                ? CARD_ROTATIONS[idx % CARD_ROTATIONS.length]
+                : 0;
               return (
-                <motion.div key={report.uuid}
-                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.04 }}>
-                  <Link href={`/history/${report.uuid}`}
-                    className="group neo-card flex items-center justify-between px-5 py-4 block"
-                    style={{ textDecoration: "none", boxShadow: "2px 2px 0px 0px #1A1A1A" }}>
-                    <div className="flex items-center gap-4 min-w-0">
-                      {/* 완료가 아닌 상태만 배지 표시 */}
-                      {report.status !== "COMPLETED" && (
-                        <span className="shrink-0 flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-full border-2"
-                          style={{ backgroundColor: cfg.bg, borderColor: "#1A1A1A", color: cfg.color }}>
-                          {report.status === "PENDING"
-                            ? <Loader2 size={10} className="animate-spin" />
-                            : <Icon size={10} />}
-                          {t[cfg.labelKey]}
-                        </span>
-                      )}
-                      <div className="min-w-0">
-                        <p className="font-black text-sm truncate transition-colors group-hover:underline"
-                          style={{ color: "#1A1A1A" }}>
-                          {report.gameName || t["history.loading_game"]}
-                        </p>
-                        {(report as any).oneLiner ? (
-                          <p className="text-xs mt-0.5 line-clamp-1" style={{ color: "#4A4A4A" }}>
-                            {(report as any).oneLiner}
-                          </p>
-                        ) : (
-                          <p className="text-sm flex items-center gap-1 mt-0.5 truncate"
-                            style={{ color: "#9CA3AF" }}>
-                            <Gamepad2 size={12} />
-                            {report.galleryName || t["history.loading_gallery"]}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0 ml-4">
-                      <span className="hidden sm:flex items-center gap-1 text-xs"
-                        style={{ color: "#9CA3AF" }}>
-                        <Calendar size={11} />
-                        {report.requestedAt
-                          ? new Date(report.requestedAt).toLocaleString("ko-KR", {
-                              month: "2-digit", day: "2-digit",
-                              hour: "2-digit", minute: "2-digit",
-                            })
-                          : "-"}
-                      </span>
-                      <ChevronRight size={16} className="transition-transform group-hover:translate-x-1"
-                        style={{ color: "#9CA3AF" }} />
-                    </div>
-                  </Link>
+                <motion.div
+                  key={report.uuid}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.04 }}
+                  className="flex justify-center sm:justify-start"
+                >
+                  {report.status === "COMPLETED" ? (
+                    <ReportCard report={report} rotate={rot} />
+                  ) : (
+                    /* PENDING / FAILED — 간단 상태 카드 */
+                    <PendingCard report={report} t={t} />
+                  )}
                 </motion.div>
               );
             })}
@@ -176,5 +141,48 @@ export default function HistoryPage() {
         )}
       </div>
     </main>
+  );
+}
+
+/* ── PENDING / FAILED 상태 카드 (인라인) ───────────────────────── */
+function PendingCard({ report, t }: { report: Report; t: Record<string, string> }) {
+  const cfg  = STATUS_CONFIG[report.status] ?? STATUS_CONFIG.PENDING;
+  const Icon = cfg.Icon;
+  const name = report.gameName || report.galleryName || t["history.loading_game"];
+
+  return (
+    <a href={`/history/${report.uuid}`} className="block w-[360px]">
+      <div
+        className="neo-card w-[360px] flex flex-col"
+        style={{ boxShadow: "2px 2px 0px 0px #1A1A1A", opacity: 0.75 }}
+      >
+        <div className="px-5 pt-5 pb-3.5 border-b-2" style={{ borderColor: "#E2E8F0" }}>
+          <div className="flex items-center gap-2">
+            <span
+              className="shrink-0 flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border-2"
+              style={{ backgroundColor: cfg.bg, borderColor: "#1A1A1A", color: cfg.color }}
+            >
+              {report.status === "PENDING"
+                ? <Loader2 size={10} className="animate-spin" />
+                : <Icon size={10} />}
+              {t[cfg.labelKey]}
+            </span>
+          </div>
+          <p className="font-black text-lg leading-tight mt-2 line-clamp-1" style={{ color: "#1A1A1A" }}>
+            {name} 갤러리
+          </p>
+        </div>
+        <div className="px-5 py-4">
+          <p className="text-xs" style={{ color: "#9CA3AF" }}>
+            {report.requestedAt
+              ? new Date(report.requestedAt).toLocaleString("ko-KR", {
+                  year: "numeric", month: "2-digit", day: "2-digit",
+                  hour: "2-digit", minute: "2-digit",
+                })
+              : "-"}
+          </p>
+        </div>
+      </div>
+    </a>
   );
 }
