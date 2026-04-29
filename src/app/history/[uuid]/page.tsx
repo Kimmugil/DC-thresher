@@ -569,9 +569,7 @@ function DailyTrendChart({ data }: { data: Record<string, number> }) {
       <div className="flex gap-0.5 h-36">
         {entries.map(([date, count]) => {
           const heightPct = Math.max((count / max) * 100, 3);
-          const label     = count >= 1000
-            ? `${Math.round(count / 100) / 10}k`
-            : String(count);
+          const label = count.toLocaleString("ko-KR");
           return (
             <div key={date} className="flex-1 h-full relative min-w-0">
               {/* 항상 보이는 수치 */}
