@@ -124,16 +124,18 @@ export default function HistoryPage() {
                   transition={{ delay: idx * 0.04 }}>
                   <Link href={`/history/${report.uuid}`}
                     className="group neo-card flex items-center justify-between px-5 py-4 block"
-                    style={{ textDecoration: "none" }}>
+                    style={{ textDecoration: "none", boxShadow: "2px 2px 0px 0px #1A1A1A" }}>
                     <div className="flex items-center gap-4 min-w-0">
-                      {/* 상태 배지 */}
-                      <span className="shrink-0 flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-full border-2"
-                        style={{ backgroundColor: cfg.bg, borderColor: "#1A1A1A", color: cfg.color }}>
-                        {report.status === "PENDING"
-                          ? <Loader2 size={10} className="animate-spin" />
-                          : <Icon size={10} />}
-                        {t[cfg.labelKey]}
-                      </span>
+                      {/* 완료가 아닌 상태만 배지 표시 */}
+                      {report.status !== "COMPLETED" && (
+                        <span className="shrink-0 flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-full border-2"
+                          style={{ backgroundColor: cfg.bg, borderColor: "#1A1A1A", color: cfg.color }}>
+                          {report.status === "PENDING"
+                            ? <Loader2 size={10} className="animate-spin" />
+                            : <Icon size={10} />}
+                          {t[cfg.labelKey]}
+                        </span>
+                      )}
                       <div className="min-w-0">
                         <p className="font-black text-sm truncate transition-colors group-hover:underline"
                           style={{ color: "#1A1A1A" }}>
