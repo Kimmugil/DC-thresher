@@ -49,7 +49,6 @@ interface ReportData {
 
 const MAX_POLLS     = 60;
 const POLL_INTERVAL = 10_000;
-const KW_COLORS     = ["#56D0A0", "#4D96FF", "#FFD600", "#FF6B6B", "#A78BFA", "#FB923C"];
 
 function extractGalleryUrl(insights: AiInsights | null): string | null {
   const allPosts = insights?.major_issues?.flatMap(i => [
@@ -181,7 +180,6 @@ export default function ReportPage() {
   const issues     = insights?.major_issues ?? [];
   const keywords   = insights?.top_keywords ?? [];
   const meta       = insights?.scrape_meta;
-  const sentiment  = insights?.overall_sentiment;
   const galleryUrl = extractGalleryUrl(insights);
 
   return (
@@ -304,18 +302,16 @@ export default function ReportPage() {
               </p>
             </div>
 
-            {/* 키워드 배지 — 기본 흑백, 호버 시 컬러 */}
+            {/* 키워드 배지 */}
             {keywords.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {keywords.map((kw, i) => (
-                  <button key={i}
-                    className="neo-button text-sm px-4 py-1.5 font-black"
-                    style={{ backgroundColor: "#FFFFFF", color: "#1A1A1A", transition: "background-color 0.15s" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = KW_COLORS[i % KW_COLORS.length]; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "#FFFFFF"; }}
+                  <span key={i}
+                    className="text-sm px-4 py-1.5 font-black rounded-full border-2"
+                    style={{ borderColor: "#1A1A1A", backgroundColor: "#FFFFFF", color: "#1A1A1A" }}
                   >
                     #{kw}
-                  </button>
+                  </span>
                 ))}
               </div>
             )}
@@ -347,39 +343,21 @@ export default function ReportPage() {
           </section>
         )}
 
-        {/* ── ② 전체 감성 온도 ────────────────────────── */}
-        {sentiment && (
-          <section>
-            <div className="flex items-center gap-2 mb-5">
-              <span className="text-lg leading-none">🌡️</span>
-              <h2 className="text-xl font-black" style={{ color: "#1A1A1A" }}>갤러리 감성 온도</h2>
-            </div>
-            <div className="neo-card neo-card-static p-5">
-              <div className="flex items-center justify-between text-sm font-black mb-2">
-                <span style={{ color: "#FF6B6B" }}>부정 {sentiment.negative}%</span>
-                <span style={{ color: "#56D0A0" }}>긍정 {sentiment.positive}%</span>
-              </div>
-              <div className="flex h-4 rounded-full overflow-hidden border-2" style={{ borderColor: "#1A1A1A" }}>
-                <div style={{ width: `${sentiment.negative}%`, backgroundColor: "#FF6B6B" }} />
-                <div style={{ width: `${sentiment.positive}%`, backgroundColor: "#56D0A0" }} />
-              </div>
-              <p className="text-xs mt-2.5" style={{ color: "#9CA3AF" }}>
-                분석 기간 내 수집 게시글 기반 AI 추정 감성 비중
-              </p>
-            </div>
-          </section>
-        )}
-
-        {/* ── ③ 주요 이슈 — 2열, 감성바 + 열기지수 ───── */}
+        {/* ── 주요 이슈 — 2열, 감성바 + 열기지수 ───── */}
         <section>
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-2 mb-1">
             <Flame size={18} style={{ color: "#1A1A1A" }} />
             <h2 className="text-xl font-black" style={{ color: "#1A1A1A" }}>주요 이슈</h2>
           </div>
+          <p className="text-xs mb-5" style={{ color: "#9CA3AF" }}>
+            열기 지수: 분석 게시글 중 해당 이슈 관련 언급 비율 (0–100) · 높은 순 정렬
+          </p>
 
           {issues.length > 0 ? (
             <div className="grid md:grid-cols-2 gap-5 items-start">
-              {issues.map((issue, i) => (
+              {[...issues]
+                .sort((a, b) => (b.heat_score ?? 0) - (a.heat_score ?? 0))
+                .map((issue, i) => (
                 <motion.div key={i}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -525,17 +503,19 @@ function DailyTrendChart({ data }: { data: Record<string, number> }) {
 
   return (
     <div>
-      <div className="flex items-end gap-0.5 h-28">
+      {/* 높이 고정 컨테이너 — 각 column이 h-full을 쓸 수 있도록 */}
+      <div className="flex gap-0.5 h-28">
         {entries.map(([date, count]) => (
-          <div key={date} className="flex flex-col items-center flex-1 min-w-0 group relative">
+          <div key={date} className="flex-1 h-full relative group min-w-0">
             {/* 툴팁 */}
             <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white
               text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100
               transition-opacity pointer-events-none z-10 font-bold text-center">
               {date.slice(5)}<br />{count}개
             </div>
+            {/* 바: 아래에서 위로 성장 */}
             <div
-              className="w-full rounded-t-sm"
+              className="absolute bottom-0 left-0 right-0 rounded-t-sm"
               style={{
                 height:          `${Math.max((count / max) * 100, 3)}%`,
                 backgroundColor: "#1A1A1A",
