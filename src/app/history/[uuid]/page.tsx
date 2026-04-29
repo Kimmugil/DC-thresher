@@ -73,11 +73,12 @@ export default function ReportPage() {
   const t        = useTexts();
   const pollCount = useRef(0);
 
-  const [report,   setReport]   = useState<ReportData | null>(null);
-  const [insights, setInsights] = useState<AiInsights | null>(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState("");
-  const [timedOut, setTimedOut] = useState(false);
+  const [report,          setReport]         = useState<ReportData | null>(null);
+  const [insights,        setInsights]       = useState<AiInsights | null>(null);
+  const [loading,         setLoading]        = useState(true);
+  const [error,           setError]          = useState("");
+  const [timedOut,        setTimedOut]       = useState(false);
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
 
   useEffect(() => {
     if (!uuid) return;
@@ -244,8 +245,21 @@ export default function ReportPage() {
                 <div className="flex items-center gap-2 font-black text-sm mb-1" style={{ color: "#1A1A1A" }}>
                   <Database size={15} /> 분석 대상
                 </div>
-                <p className="text-sm" style={{ color: "#4A4A4A" }}>
+                <p className="text-sm flex items-center gap-1.5" style={{ color: "#4A4A4A" }}>
                   수집 기간: {meta?.date_range || "알 수 없음"}
+                  <button
+                    onClick={() => setShowPeriodModal(true)}
+                    className="inline-flex items-center justify-center w-4 h-4 rounded-full border text-[10px] font-black shrink-0 transition-colors"
+                    style={{ borderColor: "#9CA3AF", color: "#9CA3AF", lineHeight: 1 }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLElement).style.borderColor = "#1A1A1A";
+                      (e.currentTarget as HTMLElement).style.color = "#1A1A1A";
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.borderColor = "#9CA3AF";
+                      (e.currentTarget as HTMLElement).style.color = "#9CA3AF";
+                    }}
+                  >?</button>
                 </p>
                 <p className="text-sm" style={{ color: "#4A4A4A" }}>
                   전체 게시글: {meta?.total_posts ? `${meta.total_posts.toLocaleString()}개` : "알 수 없음"}
@@ -482,6 +496,62 @@ export default function ReportPage() {
           <span className="font-mono">UUID: {String(uuid)}</span>
         </div>
       </div>
+
+      {/* ── 수집 기간 기준 모달 ────────────────────────── */}
+      {showPeriodModal && (
+        <>
+          {/* 딤 오버레이 */}
+          <div
+            className="fixed inset-0 z-40"
+            style={{ backgroundColor: "rgba(0,0,0,0.35)" }}
+            onClick={() => setShowPeriodModal(false)}
+          />
+          {/* 모달 */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.15 }}
+              className="neo-card neo-card-static w-full max-w-sm p-6 pointer-events-auto"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-black" style={{ color: "#1A1A1A" }}>
+                  수집 기간 기준
+                </h3>
+                <button
+                  onClick={() => setShowPeriodModal(false)}
+                  className="text-lg font-black leading-none transition-opacity hover:opacity-50"
+                  style={{ color: "#1A1A1A" }}
+                >×</button>
+              </div>
+              <p className="text-xs mb-4 leading-relaxed" style={{ color: "#4A4A4A" }}>
+                갤러리의 <strong>일평균 게시글 수</strong>를 기준으로 분석 기간을 자동 설정합니다.
+                활성 갤러리는 짧게, 조용한 갤러리는 길게 잡아 댓글 상위 표본을 적정하게 확보합니다.
+              </p>
+              <table className="w-full text-sm border-2 rounded-xl overflow-hidden" style={{ borderColor: "#1A1A1A" }}>
+                <thead>
+                  <tr style={{ backgroundColor: "#1A1A1A", color: "#FFFFFF" }}>
+                    <th className="px-3 py-2 text-left font-black text-xs">일평균 게시글</th>
+                    <th className="px-3 py-2 text-left font-black text-xs">수집 기간</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { cond: "200개 이상",  period: "최근 7일" },
+                    { cond: "50 ~ 199개", period: "최근 14일" },
+                    { cond: "49개 이하",  period: "최근 30일" },
+                  ].map(({ cond, period }, i) => (
+                    <tr key={i} style={{ borderTop: "1px solid #E2E8F0", backgroundColor: i % 2 === 0 ? "#FAFAFA" : "#FFFFFF" }}>
+                      <td className="px-3 py-2.5 font-bold" style={{ color: "#4A4A4A" }}>{cond}</td>
+                      <td className="px-3 py-2.5 font-black" style={{ color: "#1A1A1A" }}>{period}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </motion.div>
+          </div>
+        </>
+      )}
     </main>
   );
 }
