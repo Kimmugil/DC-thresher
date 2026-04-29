@@ -330,19 +330,6 @@ export default function ReportPage() {
           </p>
         </div>
 
-        {/* ── ① 일별 게시글 추이 ──────────────────────── */}
-        {meta?.date_counts && Object.keys(meta.date_counts).length > 1 && (
-          <section>
-            <div className="flex items-center gap-2 mb-5">
-              <BarChart2 size={18} style={{ color: "#1A1A1A" }} />
-              <h2 className="text-xl font-black" style={{ color: "#1A1A1A" }}>기간 내 게시글 추이</h2>
-            </div>
-            <div className="neo-card neo-card-static p-6">
-              <DailyTrendChart data={meta.date_counts} />
-            </div>
-          </section>
-        )}
-
         {/* ── 주요 이슈 — 2열, 감성바 + 열기지수 ───── */}
         <section>
           <div className="flex items-center gap-2 mb-1">
@@ -468,6 +455,19 @@ export default function ReportPage() {
           ) : <Empty text="감지된 주요 이슈가 없습니다." />}
         </section>
 
+        {/* ── 게시글 추이 (하단) ───────────────────────── */}
+        {meta?.date_counts && Object.keys(meta.date_counts).length > 1 && (
+          <section>
+            <div className="flex items-center gap-2 mb-5">
+              <BarChart2 size={18} style={{ color: "#1A1A1A" }} />
+              <h2 className="text-xl font-black" style={{ color: "#1A1A1A" }}>기간 내 게시글 추이</h2>
+            </div>
+            <div className="neo-card neo-card-static p-6">
+              <DailyTrendChart data={meta.date_counts} />
+            </div>
+          </section>
+        )}
+
         {/* ── 하단 메타 ──────────────────────────────── */}
         <div className="flex flex-wrap gap-4 text-sm px-5 py-4 rounded-xl border-2 bg-white"
           style={{ borderColor: "#E2E8F0", color: "#9CA3AF" }}>
@@ -518,7 +518,7 @@ function DailyTrendChart({ data }: { data: Record<string, number> }) {
               className="absolute bottom-0 left-0 right-0 rounded-t-sm"
               style={{
                 height:          `${Math.max((count / max) * 100, 3)}%`,
-                backgroundColor: "#1A1A1A",
+                backgroundColor: "#C8C8C8",
               }}
             />
           </div>
