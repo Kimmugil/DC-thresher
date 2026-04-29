@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Loader2, Calendar, AlertTriangle,
   CheckCircle2, Clock, Users, Database, FileText,
-  Tag, Flame, Filter, Hash
+  Flame, Filter, ExternalLink
 } from "lucide-react";
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
@@ -54,6 +54,26 @@ interface ReportData {
   requestedAt?: string;
   completedAt?: string;
   aiInsights?:  string;
+}
+
+function extractGalleryUrl(insights: AiInsights | null): string | null {
+  const allPosts = [
+    ...(insights?.public_opinions?.flatMap(o => o.related_posts ?? []) ?? []),
+    ...(insights?.major_issues?.flatMap(i => i.related_posts ?? []) ?? []),
+  ];
+  const firstUrl = allPosts.find(p => p.url)?.url;
+  if (!firstUrl) return null;
+  try {
+    const u = new URL(firstUrl);
+    const id = u.searchParams.get("id");
+    if (!id) return null;
+    const prefix = u.pathname.includes("/mgallery/") ? "mgallery/"
+                 : u.pathname.includes("/mini/")     ? "mini/"
+                 : "";
+    return `https://gall.dcinside.com/${prefix}board/lists/?id=${id}`;
+  } catch {
+    return null;
+  }
 }
 
 const MAX_POLLS     = 60;
@@ -182,10 +202,11 @@ export default function ReportPage() {
   );
 
   // ── COMPLETED ─────────────────────────────────────────────────────
-  const opinions = insights?.public_opinions ?? [];
-  const issues   = insights?.major_issues ?? [];
-  const keywords = insights?.top_keywords ?? [];
-  const meta     = insights?.scrape_meta;
+  const opinions    = insights?.public_opinions ?? [];
+  const issues      = insights?.major_issues ?? [];
+  const keywords    = insights?.top_keywords ?? [];
+  const meta        = insights?.scrape_meta;
+  const galleryUrl  = extractGalleryUrl(insights);
 
   return (
     <main className="min-h-screen pb-20" style={{ backgroundColor: "var(--bg-base)" }}>
@@ -229,9 +250,23 @@ export default function ReportPage() {
               <h1 className="text-3xl md:text-4xl font-black mb-1.5" style={{ color: "var(--text-primary)" }}>
                 {report?.gameName || t["report.game_unknown"]}
               </h1>
-              <p className="text-base font-medium" style={{ color: "var(--text-secondary)" }}>
-                {report?.galleryName || ""}
-              </p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <p className="text-base font-medium" style={{ color: "var(--text-secondary)" }}>
+                  {report?.galleryName || ""}
+                </p>
+                {galleryUrl && (
+                  <a
+                    href={galleryUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border-2 transition-colors hover:border-indigo-400 hover:text-indigo-600"
+                    style={{ borderColor: "var(--border)", color: "var(--text-secondary)", backgroundColor: "var(--bg-base)" }}
+                  >
+                    <ExternalLink size={11} />
+                    갤러리 바로가기
+                  </a>
+                )}
+              </div>
             </div>
 
             {/* 투명성 지표 카드 3개 */}
