@@ -8,6 +8,13 @@ import { Search, ArrowRight, Loader2, AlertCircle, ChevronRight, CheckCircle2, C
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
 
+interface GalleryResult {
+  name: string;
+  id:   string;
+  type: 'regular' | 'minor' | 'mini';
+  url:  string;
+}
+
 const DC_GALLERY_URL_PATTERN =
   /^https?:\/\/gall\.dcinside\.com\/(mgallery\/|mini\/)?board\/(lists|view)\/?\?(?:[^"'<>]*[?&])?id=[a-zA-Z0-9_]+/;
 
@@ -61,6 +68,8 @@ export default function Home() {
   const [error, setError]         = useState("");
   const [statusMsg, setStatusMsg] = useState("");
   const [recentReports, setRecentReports] = useState<any[]>([]);
+  const [searchResults, setSearchResults]   = useState<GalleryResult[]>([]);
+  const [isSearching,   setIsSearching]     = useState(false);
 
   const pendingReports = recentReports.filter(r => r.status === "PENDING");
   const doneReports    = recentReports.filter(r => r.status !== "PENDING").slice(0, 6);
@@ -80,6 +89,32 @@ export default function Home() {
     const iv = setInterval(fetch, 10000);
     return () => clearInterval(iv);
   }, []);
+
+  useEffect(() => {
+    const trimmed = url.trim();
+    // URL이면 검색 안 함
+    if (DC_GALLERY_URL_PATTERN.test(trimmed) || trimmed.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await axios.get(`/api/search-gallery?q=${encodeURIComponent(trimmed)}`);
+        setSearchResults(res.data.galleries ?? []);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [url]);
+
+  const handleSelectGallery = (galleryUrl: string) => {
+    setUrl(galleryUrl);
+    setSearchResults([]);
+  };
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,19 +174,20 @@ export default function Home() {
             <div className="neo-input-wrap">
               <Search size={18} className="ml-2 shrink-0" style={{ color: "#9CA3AF" }} />
               <input
-                type="url"
+                type="text"
                 id="url"
                 className="flex-1 py-3 text-sm outline-none bg-transparent"
                 style={{ color: "#1A1A1A" }}
                 placeholder={t["home.url_placeholder"]}
                 value={url}
-                onChange={e => setUrl(e.target.value)}
+                onChange={e => { setUrl(e.target.value); setError(""); }}
                 disabled={loading}
-                required
+                autoComplete="off"
               />
+              {isSearching && <Loader2 size={14} className="animate-spin shrink-0 mr-1" style={{ color: "#9CA3AF" }} />}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (!DC_GALLERY_URL_PATTERN.test(url.trim()) && searchResults.length === 0 && url.trim().length > 0 && !isSearching)}
                 className="neo-button shrink-0 flex items-center gap-2 px-6 py-2.5 text-sm"
                 style={{
                   backgroundColor: loading ? "#E2E8F0" : "#FFD600",
@@ -165,6 +201,45 @@ export default function Home() {
                 )}
               </button>
             </div>
+
+            {/* 갤러리 검색 결과 드롭다운 */}
+            <AnimatePresence>
+              {searchResults.length > 0 && !DC_GALLERY_URL_PATTERN.test(url.trim()) && (
+                <motion.div
+                  key="search-results"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.15 }}
+                  className="neo-card p-2"
+                  style={{ boxShadow: "2px 2px 0px 0px #1A1A1A" }}
+                >
+                  {searchResults.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => handleSelectGallery(g.url)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors"
+                      style={{ backgroundColor: "transparent" }}
+                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#F0EFEC")}
+                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
+                    >
+                      <span
+                        className="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full border"
+                        style={{
+                          borderColor: "#1A1A1A",
+                          color: "#1A1A1A",
+                          backgroundColor: g.type === 'minor' ? "#FFD600" : g.type === 'mini' ? "#56D0A0" : "#F0EFEC",
+                        }}
+                      >
+                        {g.type === 'minor' ? '마이너' : g.type === 'mini' ? '미니' : '일반'}
+                      </span>
+                      <span className="text-sm font-bold truncate" style={{ color: "#1A1A1A" }}>{g.name}</span>
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* 에러 / 상태 */}
             <AnimatePresence mode="wait">
