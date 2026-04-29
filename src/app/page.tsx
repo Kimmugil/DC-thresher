@@ -4,47 +4,43 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, History, ArrowRight, Loader2, AlertCircle, Sparkles, Database, Bot } from "lucide-react";
+import { Search, ArrowRight, Loader2, AlertCircle, ChevronRight, CheckCircle2, Clock, XCircle } from "lucide-react";
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
 
 const DC_GALLERY_URL_PATTERN =
   /^https?:\/\/gall\.dcinside\.com\/(mgallery\/|mini\/)?board\/(lists|view)\/?\?(?:[^"'<>]*[?&])?id=[a-zA-Z0-9_]+/;
 
-const STEP_ICONS = [Search, Database, Bot, Sparkles];
+const STATUS_CONFIG = {
+  COMPLETED: { label: "분석 완료", icon: CheckCircle2, color: "#16A34A", bg: "#F0FDF4", border: "#BBF7D0" },
+  PENDING:   { label: "진행 중",   icon: Clock,        color: "#D97706", bg: "#FFFBEB", border: "#FDE68A" },
+  FAILED:    { label: "실패",      icon: XCircle,      color: "#DC2626", bg: "#FEF2F2", border: "#FECACA" },
+} as const;
 
 export default function Home() {
   const router = useRouter();
   const t = useTexts();
 
-  const [url, setUrl]             = useState("");
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState("");
-  const [statusMsg, setStatusMsg] = useState("");
-  const [pendingReports, setPendingReports] = useState<any[]>([]);
+  const [url, setUrl]               = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
+  const [statusMsg, setStatusMsg]   = useState("");
+  const [focused, setFocused]       = useState(false);
+  const [recentReports, setRecentReports] = useState<any[]>([]);
 
   useEffect(() => {
-    // Fetch history and filter pending
-    const fetchPending = async () => {
+    const fetchReports = async () => {
       try {
         const res = await axios.get("/api/history");
-        const pending = res.data.reports?.filter((r: any) => r.status === "PENDING") || [];
-        setPendingReports(pending);
-      } catch (e) {
+        setRecentReports(res.data.reports?.slice(0, 6) || []);
+      } catch {
         // ignore
       }
     };
-    fetchPending();
-    const interval = setInterval(fetchPending, 10000);
+    fetchReports();
+    const interval = setInterval(fetchReports, 10000);
     return () => clearInterval(interval);
   }, []);
-
-  const STEPS = [
-    { icon: Search,   label: t["home.step1_label"], desc: t["home.step1_desc"] },
-    { icon: Database, label: t["home.step2_label"], desc: t["home.step2_desc"] },
-    { icon: Bot,      label: t["home.step3_label"], desc: t["home.step3_desc"] },
-    { icon: Sparkles, label: t["home.step4_label"], desc: t["home.step4_desc"] },
-  ];
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,184 +71,181 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg-base)" }}>
+    <main style={{ backgroundColor: "#F9F8F5", minHeight: "100vh" }}>
 
-
-
-      {/* 메인 컨텐츠 */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
+      {/* 히어로 */}
+      <div className="flex flex-col items-center px-4 pt-20 pb-16">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.45 }}
           className="w-full max-w-2xl"
         >
-          {/* 타이틀 */}
+          {/* 브랜드 */}
           <div className="text-center mb-10">
-            <div
-              className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full mb-6 border"
-              style={{ backgroundColor: "rgba(99,102,241,0.1)", borderColor: "rgba(99,102,241,0.3)", color: "#818cf8" }}
+            <div className="text-5xl mb-5 select-none">🚜</div>
+            <h1
+              className="text-4xl md:text-5xl font-black mb-3 leading-tight tracking-tight"
+              style={{ color: "#18181B" }}
             >
-              <Sparkles size={12} />
-              {t["home.badge"]}
-            </div>
-            <h1 className="text-4xl md:text-5xl font-black mb-4 leading-tight" style={{ color: "var(--text-primary)" }}>
-              {t["home.title_line1"]}
-              <br />
-              <span className="text-indigo-400">{t["home.title_accent"]}</span>
+              {t["home.title_line1"]}{" "}
+              <span style={{ color: "#6366F1" }}>{t["home.title_accent"]}</span>
             </h1>
-            <p className="text-base md:text-lg leading-relaxed max-w-lg mx-auto" style={{ color: "var(--text-secondary)" }}>
+            <p className="text-base leading-relaxed max-w-md mx-auto" style={{ color: "#71717A" }}>
               {t["home.subtitle"]}
             </p>
           </div>
 
-          {/* 입력 카드 */}
-          <div
-            className="rounded-2xl p-6 md:p-8 border mb-6"
-            style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}
-          >
-            <form onSubmit={handleAnalyze} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="url"
-                  className="block text-sm font-semibold mb-2"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  {t["home.url_label"]}
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Search size={16} style={{ color: "var(--text-muted)" }} />
-                  </div>
-                  <input
-                    type="url"
-                    id="url"
-                    className="w-full pl-11 pr-4 py-3.5 rounded-xl text-sm outline-none transition-all border"
-                    style={{
-                      backgroundColor: "var(--bg-base)",
-                      borderColor: "var(--border)",
-                      color: "var(--text-primary)",
-                    }}
-                    placeholder={t["home.url_placeholder"]}
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    disabled={loading}
-                    onFocus={e => (e.currentTarget.style.borderColor = "var(--accent)")}
-                    onBlur={e => (e.currentTarget.style.borderColor = "var(--border)")}
-                    required
-                  />
-                </div>
+          {/* 입력 폼 */}
+          <form onSubmit={handleAnalyze} className="space-y-3">
+            <div
+              className="flex items-center gap-2 p-2 rounded-2xl border-2 transition-all"
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderColor: focused ? "#6366F1" : "#E8E6E1",
+              }}
+            >
+              <div className="flex items-center pl-3 shrink-0">
+                <Search size={16} style={{ color: "#A1A1AA" }} />
               </div>
-
-              {/* 에러 / 상태 메시지 */}
-              <AnimatePresence mode="wait">
-                {error && (
-                  <motion.div
-                    key="error"
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="flex items-start gap-2 text-sm px-4 py-3 rounded-xl border"
-                    style={{ backgroundColor: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.25)", color: "#fca5a5" }}
-                  >
-                    <AlertCircle size={15} className="shrink-0 mt-0.5" />
-                    {error}
-                  </motion.div>
-                )}
-                {statusMsg && !error && (
-                  <motion.div
-                    key="status"
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl border"
-                    style={{ backgroundColor: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.25)", color: "#a5b4fc" }}
-                  >
-                    {loading && <Loader2 size={14} className="animate-spin shrink-0" />}
-                    {statusMsg}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
+              <input
+                type="url"
+                id="url"
+                className="flex-1 py-2.5 text-sm outline-none bg-transparent"
+                style={{ color: "#18181B" }}
+                placeholder={t["home.url_placeholder"]}
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                disabled={loading}
+                required
+              />
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 px-6 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all"
                 style={{
-                  background: loading ? "var(--bg-raised)" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                  color: loading ? "var(--text-muted)" : "#fff",
+                  backgroundColor: loading ? "#E4E4E7" : "#18181B",
+                  color: loading ? "#A1A1AA" : "#FFFFFF",
                   cursor: loading ? "not-allowed" : "pointer",
                 }}
               >
                 {loading ? (
                   <>
-                    <Loader2 size={16} className="animate-spin" />
+                    <Loader2 size={14} className="animate-spin" />
                     {t["home.submit_loading"]}
                   </>
                 ) : (
                   <>
                     {t["home.submit_btn"]}
-                    <ArrowRight size={16} />
+                    <ArrowRight size={14} />
                   </>
                 )}
               </button>
-            </form>
+            </div>
+
+            {/* 에러 / 상태 메시지 */}
+            <AnimatePresence mode="wait">
+              {error && (
+                <motion.div
+                  key="error"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="flex items-start gap-2 text-sm px-4 py-3 rounded-xl border"
+                  style={{ backgroundColor: "#FEF2F2", borderColor: "#FECACA", color: "#DC2626" }}
+                >
+                  <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                  {error}
+                </motion.div>
+              )}
+              {statusMsg && !error && (
+                <motion.div
+                  key="status"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl border"
+                  style={{ backgroundColor: "#EEF2FF", borderColor: "#C7D2FE", color: "#4338CA" }}
+                >
+                  {loading && <Loader2 size={14} className="animate-spin shrink-0" />}
+                  {statusMsg}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </form>
+
+          <p className="text-center text-xs mt-4" style={{ color: "#A1A1AA" }}>
+            {t["home.footer_note"]}
+          </p>
+        </motion.div>
+      </div>
+
+      {/* 최근 분석 리포트 */}
+      {recentReports.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+          className="max-w-2xl mx-auto px-4 pb-20"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold" style={{ color: "#18181B" }}>
+              최근 분석
+            </h2>
+            <Link
+              href="/history"
+              className="flex items-center gap-0.5 text-xs font-medium transition-colors hover:opacity-70"
+              style={{ color: "#71717A" }}
+            >
+              전체 보기
+              <ChevronRight size={13} />
+            </Link>
           </div>
 
-          {/* 프로세스 스텝 */}
-          <div className="grid grid-cols-4 gap-2">
-            {STEPS.map((step, i) => {
-              const Icon = STEP_ICONS[i];
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {recentReports.map((r, i) => {
+              const status = r.status as keyof typeof STATUS_CONFIG;
+              const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.PENDING;
+              const Icon = cfg.icon;
+              const name = r.gameName || r.galleryName || "분석 중...";
+
               return (
-                <div key={i} className="text-center">
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center mx-auto mb-2 border"
-                    style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}
+                <Link key={r.uuid ?? i} href={`/history/${r.uuid}`}>
+                  <motion.div
+                    whileHover={{ y: -2 }}
+                    transition={{ duration: 0.15 }}
+                    className="p-4 rounded-2xl border-2 bg-white transition-colors hover:border-indigo-300"
+                    style={{ borderColor: "#E8E6E1" }}
                   >
-                    <Icon size={16} style={{ color: "var(--accent-hover)" }} />
-                  </div>
-                  <p className="text-xs font-semibold mb-0.5" style={{ color: "var(--text-primary)" }}>{step.label}</p>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{step.desc}</p>
-                </div>
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <span
+                        className="font-bold text-sm leading-snug line-clamp-2"
+                        style={{ color: "#18181B" }}
+                      >
+                        {name}
+                      </span>
+                      <span
+                        className="shrink-0 flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg border"
+                        style={{ backgroundColor: cfg.bg, borderColor: cfg.border, color: cfg.color }}
+                      >
+                        <Icon size={11} />
+                        {cfg.label}
+                      </span>
+                    </div>
+                    <p className="text-xs" style={{ color: "#A1A1AA" }}>
+                      {new Date(r.requestedAt).toLocaleString("ko-KR", {
+                        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                      })}
+                    </p>
+                  </motion.div>
+                </Link>
               );
             })}
           </div>
-
-          {/* 안내 */}
-          <p className="text-center text-xs mt-6" style={{ color: "var(--text-muted)" }}>
-            {t["home.footer_note"]}
-          </p>
-          {/* 진행 중인 대기열 (Pending Queue) */}
-          {pendingReports.length > 0 && (
-            <div className="mt-12 w-full max-w-2xl mx-auto">
-              <h2 className="text-sm font-bold flex items-center gap-2 mb-4 text-indigo-400">
-                <Loader2 size={16} className="animate-spin" />
-                분석 진행 중인 갤러리 대기소
-              </h2>
-              <div className="flex flex-col gap-3">
-                {pendingReports.map((r, i) => (
-                  <Link key={i} href={`/history/${r.uuid}`}
-                    className="flex items-center justify-between p-4 rounded-xl border transition-colors hover:bg-white/5"
-                    style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}>
-                    <div className="flex flex-col">
-                      <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
-                        {r.gameName || r.galleryName || "분석 중..."}
-                      </span>
-                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        {new Date(r.requestedAt).toLocaleString("ko-KR")} 요청됨
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs font-semibold px-2 py-1 rounded-md"
-                      style={{ backgroundColor: "rgba(99,102,241,0.1)", color: "#818cf8" }}>
-                      진행 중
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
         </motion.div>
-      </div>
+      )}
     </main>
   );
 }

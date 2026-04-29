@@ -72,7 +72,8 @@ export default function AdminPage() {
           {error && <p className="text-red-400 text-xs mb-4 text-center">{error}</p>}
 
           <button type="submit" disabled={authLoading}
-            className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-500 text-white hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2">
+            className="w-full py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+            style={{ backgroundColor: "#18181B", color: "#FFFFFF" }}>
             {authLoading ? <Loader2 size={16} className="animate-spin" /> : "로그인"}
           </button>
         </form>

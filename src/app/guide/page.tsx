@@ -6,7 +6,7 @@ export default function GuidePage() {
       <div className="max-w-4xl mx-auto space-y-10">
         
         <header className="text-center border-b pb-10" style={{ borderColor: "var(--border)" }}>
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 bg-indigo-500/10">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: "#EEF2FF" }}>
             <BookOpen size={32} className="text-indigo-400" />
           </div>
           <h1 className="text-3xl md:text-4xl font-black mb-4" style={{ color: "var(--text-primary)" }}>
@@ -31,7 +31,7 @@ export default function GuidePage() {
               <li>해당 기간 내의 수많은 게시글(많게는 수만 개)의 메타데이터(제목, 댓글 수, 조회수 등)를 빠르게 스캔합니다.</li>
               <li>스캔된 전체 게시글 중 <strong>댓글 수가 가장 많은 상위 100개</strong>의 게시글을 최종 '분석 표본'으로 확정하고 본문 내용까지 깊게 파싱합니다.</li>
             </ul>
-            <p className="text-sm mt-4 p-3 rounded-lg bg-emerald-400/10 text-emerald-400/90">
+            <p className="text-sm mt-4 p-3 rounded-lg border" style={{ backgroundColor: "#F0FDF4", borderColor: "#BBF7D0", color: "#15803D" }}>
               💡 <strong>왜 댓글 수 기준 상위 100개인가요?</strong> <br />
               갤러리 특성상 의미 없는 뻘글이나 단순 질문글이 대다수를 차지합니다. 댓글이 많이 달린 글(일명 떡밥글)이야말로 현재 유저들이 가장 주목하고 격렬하게 논의 중인 진짜 '여론'이기 때문입니다.
             </p>

@@ -6,12 +6,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Loader2, Calendar, AlertTriangle,
   CheckCircle2, Clock, Users, Database, FileText,
-  ExternalLink, Tag, Flame, Info, Filter, Hash
+  Tag, Flame, Filter, Hash
 } from "lucide-react";
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
 
-// ── Gemini 실제 출력 타입 ─────────────────────────────────────────
 interface RelatedPost { title: string; url: string; }
 
 interface PublicOpinion {
@@ -57,11 +56,9 @@ interface ReportData {
   aiInsights?:  string;
 }
 
-// ── 상수 ──────────────────────────────────────────────────────────
 const MAX_POLLS     = 60;
 const POLL_INTERVAL = 10_000;
 
-// ── 메인 컴포넌트 ─────────────────────────────────────────────────
 export default function ReportPage() {
   const { uuid }  = useParams();
   const router    = useRouter();
@@ -115,43 +112,43 @@ export default function ReportPage() {
     return () => { cancelled = true; };
   }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 로딩 ────────────────────────────────────────────────────────
+  // ── 로딩 ──────────────────────────────────────────────────────────
   if (loading && !report) return (
     <div className="min-h-screen flex flex-col items-center justify-center" style={{ backgroundColor: "var(--bg-base)" }}>
-      <Loader2 size={36} className="animate-spin text-indigo-400 mb-3" />
+      <Loader2 size={36} className="animate-spin mb-3" style={{ color: "var(--accent)" }} />
       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{t["report.loading_text"]}</p>
     </div>
   );
 
-  // ── 오류 ────────────────────────────────────────────────────────
+  // ── 오류 ──────────────────────────────────────────────────────────
   if (error) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ backgroundColor: "var(--bg-base)" }}>
-      <div className="text-center max-w-sm w-full p-8 rounded-2xl border" style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}>
+      <div className="text-center max-w-sm w-full p-8 rounded-2xl border-2 bg-white" style={{ borderColor: "var(--border)" }}>
         <AlertTriangle size={40} className="text-red-400 mx-auto mb-4" />
         <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>{t["report.error_title"]}</h2>
         <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>{error}</p>
         <button onClick={() => router.push("/history")}
-          className="w-full py-2.5 rounded-xl text-sm font-semibold border"
-          style={{ backgroundColor: "var(--bg-raised)", color: "var(--text-primary)", borderColor: "var(--border)" }}>
+          className="w-full py-2.5 rounded-xl text-sm font-bold"
+          style={{ backgroundColor: "#18181B", color: "#FFFFFF" }}>
           {t["report.back_to_list"]}
         </button>
       </div>
     </div>
   );
 
-  // ── PENDING ──────────────────────────────────────────────────────
+  // ── PENDING ───────────────────────────────────────────────────────
   if (report?.status === "PENDING" || (!report?.status || (report.status !== "COMPLETED" && report.status !== "FAILED"))) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ backgroundColor: "var(--bg-base)" }}>
-      <div className="text-center max-w-md w-full p-8 rounded-2xl border relative overflow-hidden"
-        style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}>
+      <div className="text-center max-w-md w-full p-8 rounded-2xl border-2 bg-white relative overflow-hidden"
+        style={{ borderColor: "var(--border)" }}>
         <div className="absolute top-0 left-0 right-0 h-0.5 overflow-hidden" style={{ backgroundColor: "var(--bg-raised)" }}>
           <motion.div className="h-full bg-indigo-500"
             animate={{ x: ["-100%", "100%"] }}
             transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }} />
         </div>
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5"
-          style={{ backgroundColor: "rgba(99,102,241,0.1)" }}>
-          <Loader2 size={28} className="animate-spin text-indigo-400" />
+          style={{ backgroundColor: "#EEF2FF" }}>
+          <Loader2 size={28} className="animate-spin" style={{ color: "var(--accent)" }} />
         </div>
         <h2 className="text-xl font-black mb-2" style={{ color: "var(--text-primary)" }}>{t["report.analyzing_title"]}</h2>
         <p className="text-sm mb-6 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
@@ -169,12 +166,14 @@ export default function ReportPage() {
           </div>
         </div>
         {timedOut && (
-          <p className="mt-4 text-xs text-red-400">{t["report.timeout_msg"]}</p>
+          <p className="mt-4 text-xs text-red-500">{t["report.timeout_msg"]}</p>
         )}
         <div className="mt-6">
           <button onClick={() => router.push("/")}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-white/5"
-            style={{ backgroundColor: "var(--bg-base)", color: "var(--text-secondary)", borderColor: "var(--border)" }}>
+            className="w-full py-2.5 rounded-xl text-sm font-semibold border transition-colors"
+            style={{ backgroundColor: "var(--bg-base)", color: "var(--text-secondary)", borderColor: "var(--border)" }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = "var(--bg-raised)")}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = "var(--bg-base)")}>
             홈으로 돌아가기 (백그라운드에서 계속 진행됩니다)
           </button>
         </div>
@@ -191,9 +190,9 @@ export default function ReportPage() {
   return (
     <main className="min-h-screen pb-20" style={{ backgroundColor: "var(--bg-base)" }}>
 
-      {/* 상단 액션 */}
-      <div className="flex items-center justify-between px-5 h-14 border-b"
-        style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-surface)" }}>
+      {/* 상단 액션바 */}
+      <div className="flex items-center justify-between px-5 h-14 border-b bg-white"
+        style={{ borderColor: "var(--border)" }}>
         <button onClick={() => router.push("/history")}
           className="flex items-center gap-1.5 text-sm font-medium transition-colors"
           style={{ color: "var(--text-secondary)" }}
@@ -210,16 +209,16 @@ export default function ReportPage() {
       </div>
 
       {/* 헤더 */}
-      <header className="border-b py-10" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-surface)" }}>
+      <header className="border-b py-10 bg-white" style={{ borderColor: "var(--border)" }}>
         <div className="max-w-6xl mx-auto px-5">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
             className="flex flex-col gap-6">
-            
-            {/* 타이틀 영역 */}
+
+            {/* 타이틀 */}
             <div>
               <div className="flex items-center gap-2.5 mb-3">
                 <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border"
-                  style={{ backgroundColor: "rgba(34,197,94,0.1)", borderColor: "rgba(34,197,94,0.25)", color: "#86efac" }}>
+                  style={{ backgroundColor: "#F0FDF4", borderColor: "#BBF7D0", color: "#15803D" }}>
                   <CheckCircle2 size={10} /> {t["report.status_completed"]}
                 </span>
                 <span className="flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
@@ -235,10 +234,10 @@ export default function ReportPage() {
               </p>
             </div>
 
-            {/* 투명성 지표 (분석 대상, 분석 방법, 수집한 데이터) */}
+            {/* 투명성 지표 카드 3개 */}
             <div className="grid md:grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl border flex flex-col gap-2" style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)" }}>
-                <div className="flex items-center gap-1.5 font-bold text-sm mb-1 text-indigo-400">
+              <div className="p-4 rounded-xl border-2 flex flex-col gap-2" style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-1.5 font-bold text-sm mb-1" style={{ color: "var(--accent)" }}>
                   <Database size={16} /> 분석 대상
                 </div>
                 <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
@@ -249,17 +248,17 @@ export default function ReportPage() {
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl border flex flex-col gap-2" style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)" }}>
-                <div className="flex items-center gap-1.5 font-bold text-sm mb-1 text-emerald-400">
+              <div className="p-4 rounded-xl border-2 flex flex-col gap-2" style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-1.5 font-bold text-sm mb-1 text-emerald-600">
                   <Filter size={16} /> 분석 방법 (표본 추출)
                 </div>
                 <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                  전체 글 중 <strong>댓글 수 기준 상위 {meta?.core_posts || 100}개</strong>의 화제글만 선별하여 AI가 집중 분석했습니다. 단순 무작위 표본이 아닙니다.
+                  전체 글 중 <strong>댓글 수 기준 상위 {meta?.core_posts || 100}개</strong>의 화제글만 선별하여 AI가 집중 분석했습니다.
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl border flex flex-col gap-2" style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)" }}>
-                <div className="flex items-center gap-1.5 font-bold text-sm mb-1 text-amber-400">
+              <div className="p-4 rounded-xl border-2 flex flex-col gap-2" style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-1.5 font-bold text-sm mb-1 text-amber-600">
                   <FileText size={16} /> 수집 표본 데이터 현황
                 </div>
                 <div className="text-xs space-y-1.5" style={{ color: "var(--text-secondary)" }}>
@@ -273,23 +272,22 @@ export default function ReportPage() {
               </div>
             </div>
 
-            {/* 한줄 요약 및 키워드 */}
-            <div className="p-5 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-5"
-              style={{ backgroundColor: "rgba(99,102,241,0.06)", borderColor: "rgba(99,102,241,0.2)" }}>
+            {/* AI 한줄 요약 + 키워드 */}
+            <div className="p-5 rounded-2xl border-2 flex flex-col md:flex-row md:items-center justify-between gap-5"
+              style={{ backgroundColor: "#EEF2FF", borderColor: "#C7D2FE" }}>
               <div className="flex-1">
-                <p className="text-xs font-semibold mb-1.5 text-indigo-400">AI 한줄 요약</p>
+                <p className="text-xs font-bold mb-1.5" style={{ color: "var(--accent)" }}>AI 한줄 요약</p>
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
                   {insights?.critic_one_liner || "분석 결과가 없습니다."}
                 </p>
               </div>
-              
               {keywords.length > 0 && (
                 <div className="shrink-0 flex flex-col gap-2 md:items-end">
-                  <p className="text-[11px] font-semibold text-indigo-400">핵심 떡밥 키워드</p>
+                  <p className="text-[11px] font-bold" style={{ color: "var(--accent)" }}>핵심 떡밥 키워드</p>
                   <div className="flex flex-wrap gap-1.5 md:justify-end">
                     {keywords.map((kw, i) => (
                       <span key={i} className="text-[11px] font-semibold px-2 py-0.5 rounded-full border"
-                        style={{ backgroundColor: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-secondary)" }}>
+                        style={{ backgroundColor: "var(--bg-surface)", borderColor: "#C7D2FE", color: "var(--accent)" }}>
                         #{kw}
                       </span>
                     ))}
@@ -304,51 +302,51 @@ export default function ReportPage() {
 
       <div className="max-w-6xl mx-auto px-5 py-10 space-y-10">
 
-        {/* 신뢰도 알림 박스 */}
-        <div className="flex items-start gap-3 p-4 rounded-xl border"
-          style={{ backgroundColor: "rgba(245,158,11,0.06)", borderColor: "rgba(245,158,11,0.2)" }}>
+        {/* 신뢰도 알림 */}
+        <div className="flex items-start gap-3 p-4 rounded-xl border-2"
+          style={{ backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }}>
           <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
-          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            이 리포트는 샘플링된 <strong>핵심 화제글(최대 {meta?.core_posts || 100}개)</strong>의 내용을 바탕으로 작성되었으며, 갤러리 전체의 의견을 100% 대변하지 않을 수 있습니다. 
+          <p className="text-sm leading-relaxed" style={{ color: "#92400E" }}>
+            이 리포트는 샘플링된 <strong>핵심 화제글(최대 {meta?.core_posts || 100}개)</strong>의 내용을 바탕으로 작성되었으며, 갤러리 전체의 의견을 100% 대변하지 않을 수 있습니다.
             사실 확인을 위해 반드시 제공된 원문 링크를 참고하세요.
           </p>
         </div>
 
-        {/* 주요 여론 리스트 */}
+        {/* 주요 여론 */}
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <Users size={18} className="text-emerald-400" />
+            <Users size={18} className="text-emerald-600" />
             <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>주요 여론 리스트</h2>
           </div>
           {opinions.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               {opinions.map((op, i) => (
                 <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  className="p-4 rounded-xl border flex flex-col h-full"
-                  style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}>
-                  
+                  className="p-4 rounded-xl border-2 bg-white flex flex-col h-full border-l-4"
+                  style={{
+                    borderColor: "var(--border)",
+                    borderLeftColor: op.is_positive ? "#4ADE80" : "#F87171",
+                  }}>
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-base">{op.is_positive ? "🟢" : "🔴"}</span>
-                    <span className="font-bold text-sm line-clamp-1" style={{ color: "var(--text-primary)" }} title={op.opinion_title}>
+                    <span className="font-bold text-sm line-clamp-2" style={{ color: "var(--text-primary)" }} title={op.opinion_title}>
                       {op.opinion_title}
                     </span>
                   </div>
-                  
                   <p className="text-xs leading-relaxed mb-4 flex-1" style={{ color: "var(--text-secondary)" }}>
                     {op.opinion_summary}
                   </p>
-
                   {op.related_posts && op.related_posts.length > 0 && (
                     <div className="mt-auto pt-3 border-t" style={{ borderColor: "var(--border)" }}>
-                      <p className="text-[10px] font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>관련 게시글 레퍼런스</p>
+                      <p className="text-[10px] font-bold mb-1.5" style={{ color: "var(--text-muted)" }}>관련 게시글</p>
                       <ul className="space-y-1">
                         {op.related_posts.map((post, j) => (
-                          <li key={j} className="flex items-start gap-1">
-                            <span className="text-[10px] text-indigo-400 mt-0.5">•</span>
+                          <li key={j}>
                             <a href={post.url} target="_blank" rel="noopener noreferrer"
-                              className="text-[11px] truncate hover:underline text-indigo-400 transition-colors"
+                              className="text-[11px] truncate block hover:underline"
+                              style={{ color: "var(--accent)" }}
                               title={post.title}>
-                              {post.title}
+                              · {post.title}
                             </a>
                           </li>
                         ))}
@@ -363,55 +361,50 @@ export default function ReportPage() {
           )}
         </section>
 
-        {/* 주요 이슈 리스트 */}
+        {/* 주요 이슈 */}
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <Flame size={18} className="text-orange-400" />
+            <Flame size={18} className="text-orange-500" />
             <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>주요 이슈 리스트</h2>
           </div>
           {issues.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               {issues.map((issue, i) => (
                 <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  className="p-4 rounded-xl border flex flex-col h-full"
-                  style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)" }}>
-                  
+                  className="p-4 rounded-xl border-2 bg-white flex flex-col h-full"
+                  style={{ borderColor: "var(--border)" }}>
                   <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded border"
-                      style={{ backgroundColor: "rgba(245,158,11,0.1)", color: "#fbbf24", borderColor: "rgba(245,158,11,0.2)" }}>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                      style={{ backgroundColor: "#FFFBEB", color: "#B45309", borderColor: "#FDE68A" }}>
                       {issue.issue_category}
                     </span>
                   </div>
-
                   <h3 className="font-bold text-sm mb-2" style={{ color: "var(--text-primary)" }}>
                     {issue.issue_title}
                   </h3>
-                  
                   {issue.issue_keywords && issue.issue_keywords.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-3">
                       {issue.issue_keywords.map((kw, j) => (
-                        <span key={j} className="text-[10px] text-orange-400/80 bg-orange-400/10 px-1.5 py-0.5 rounded">
+                        <span key={j} className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                          style={{ backgroundColor: "#FFF7ED", color: "#C2410C" }}>
                           {kw}
                         </span>
                       ))}
                     </div>
                   )}
-
                   <p className="text-xs leading-relaxed mb-4 flex-1" style={{ color: "var(--text-secondary)" }}>
                     {issue.issue_summary}
                   </p>
-
                   {issue.related_posts && issue.related_posts.length > 0 && (
                     <div className="mt-auto pt-3 border-t" style={{ borderColor: "var(--border)" }}>
-                      <p className="text-[10px] font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>관련 게시글 레퍼런스</p>
+                      <p className="text-[10px] font-bold mb-1.5" style={{ color: "var(--text-muted)" }}>관련 게시글</p>
                       <ul className="space-y-1">
                         {issue.related_posts.map((post, j) => (
-                          <li key={j} className="flex items-start gap-1">
-                            <span className="text-[10px] text-orange-400 mt-0.5">•</span>
+                          <li key={j}>
                             <a href={post.url} target="_blank" rel="noopener noreferrer"
-                              className="text-[11px] truncate hover:underline text-orange-400 transition-colors"
+                              className="text-[11px] truncate block hover:underline text-orange-600"
                               title={post.title}>
-                              {post.title}
+                              · {post.title}
                             </a>
                           </li>
                         ))}
@@ -427,8 +420,8 @@ export default function ReportPage() {
         </section>
 
         {/* 하단 메타 */}
-        <div className="flex flex-wrap gap-4 text-xs px-5 py-4 rounded-xl border mt-10"
-          style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-muted)" }}>
+        <div className="flex flex-wrap gap-4 text-xs px-5 py-4 rounded-xl border-2 bg-white"
+          style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
           <span className="flex items-center gap-1">
             <Clock size={11} />
             {t["report.req_time"]}: {report?.requestedAt ? new Date(report.requestedAt).toLocaleString("ko-KR") : "-"}
@@ -446,7 +439,7 @@ export default function ReportPage() {
 
 function Empty({ text }: { text: string }) {
   return (
-    <div className="py-12 flex items-center justify-center rounded-xl border border-dashed" style={{ borderColor: "var(--border)" }}>
+    <div className="py-12 flex items-center justify-center rounded-xl border-2 border-dashed" style={{ borderColor: "var(--border)" }}>
       <p className="text-sm" style={{ color: "var(--text-muted)" }}>{text}</p>
     </div>
   );
