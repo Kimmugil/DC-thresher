@@ -52,7 +52,8 @@ export default function Home() {
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState("");
   const [statusMsg, setStatusMsg] = useState("");
-  const [recentReports, setRecentReports] = useState<any[]>([]);
+  const [recentReports, setRecentReports]       = useState<any[]>([]);
+  const [speedPerCard,  setSpeedPerCard]         = useState(5); // Config에서 override됨
 
   const pendingReports  = recentReports.filter(r => r.status === "PENDING");
   const completedCards  = recentReports.filter(r => r.status === "COMPLETED") as ReportCardData[];
@@ -65,7 +66,14 @@ export default function Home() {
   const paddedCards = completedCards.length === 0 ? [] :
     Array.from({ length: padRepeats }, () => completedCards).flat();
   const marqueeCards   = [...paddedCards, ...paddedCards];
-  const marqueeDuration = `${Math.max(paddedCards.length * 5, 10)}s`;
+  const marqueeDuration = `${Math.max(paddedCards.length * speedPerCard, 10)}s`;
+
+  useEffect(() => {
+    // Config에서 마퀴 속도 한 번만 가져오기
+    axios.get("/api/config")
+      .then(res => { if (res.data.marqueeSpeedPerCard) setSpeedPerCard(res.data.marqueeSpeedPerCard); })
+      .catch(() => { /* 기본값 유지 */ });
+  }, []);
 
   useEffect(() => {
     const fetchHistory = async () => {

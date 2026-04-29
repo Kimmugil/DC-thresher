@@ -16,13 +16,16 @@ import { JWT } from "google-auth-library";
 import { GoogleSpreadsheet } from "google-spreadsheet";
 
 export interface SiteConfig {
-  title:       string;
-  description: string;
+  title:               string;
+  description:         string;
+  /** 마퀴 카드 1장당 애니메이션 시간(초). 낮을수록 빠름. 기본 5 */
+  marqueeSpeedPerCard: number;
 }
 
 const DEFAULT_CONFIG: SiteConfig = {
-  title:       "DC-Thresher | AI 갤러리 분석",
-  description: "디시인사이드 갤러리 여론을 Gemini AI가 심층 분석합니다",
+  title:               "DC-Thresher | AI 갤러리 분석",
+  description:         "디시인사이드 갤러리 여론을 Gemini AI가 심층 분석합니다",
+  marqueeSpeedPerCard: 5,
 };
 
 let _cache: { config: SiteConfig; expiresAt: number } | null = null;
@@ -56,9 +59,13 @@ export async function fetchSiteConfig(): Promise<SiteConfig> {
       if (key && value) map[key] = value;
     }
 
+    const rawSpeed = parseFloat(map["marquee.speed_per_card"] ?? "");
     const config: SiteConfig = {
-      title:       map["app.title"]       || DEFAULT_CONFIG.title,
-      description: map["app.description"] || DEFAULT_CONFIG.description,
+      title:               map["app.title"]       || DEFAULT_CONFIG.title,
+      description:         map["app.description"] || DEFAULT_CONFIG.description,
+      marqueeSpeedPerCard: isNaN(rawSpeed) || rawSpeed <= 0
+        ? DEFAULT_CONFIG.marqueeSpeedPerCard
+        : rawSpeed,
     };
 
     _cache = { config, expiresAt: Date.now() + 5 * 60 * 1000 };
