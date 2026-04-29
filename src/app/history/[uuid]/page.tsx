@@ -170,7 +170,7 @@ export default function ReportPage() {
           <button onClick={() => router.push("/")}
             className="neo-button w-full py-2.5 text-sm"
             style={{ backgroundColor: "#F0EFEC", color: "#1A1A1A" }}>
-            홈으로 돌아가기 (백그라운드에서 계속 진행됩니다)
+            {t["report.home_btn"]}
           </button>
         </div>
       </div>
@@ -182,6 +182,12 @@ export default function ReportPage() {
   const keywords   = insights?.top_keywords ?? [];
   const meta       = insights?.scrape_meta;
   const galleryUrl = extractGalleryUrl(insights);
+
+  const periodRows = [
+    { cond: t["report.period_row1_cond"], period: t["report.period_row1_period"] },
+    { cond: t["report.period_row2_cond"], period: t["report.period_row2_period"] },
+    { cond: t["report.period_row3_cond"], period: t["report.period_row3_period"] },
+  ];
 
   return (
     <main style={{ backgroundColor: "#FAFAFA", minHeight: "100vh", paddingBottom: 80 }}>
@@ -218,7 +224,7 @@ export default function ReportPage() {
                 </span>
                 <span className="flex items-center gap-1 text-sm" style={{ color: "#9CA3AF" }}>
                   <Calendar size={13} />
-                  <span className="font-semibold">분석 완료 시점:</span>
+                  <span className="font-semibold">{t["report.completed_at_label"]}</span>
                   <span>{report?.completedAt ? new Date(report.completedAt).toLocaleString("ko-KR") : "-"}</span>
                 </span>
               </div>
@@ -239,7 +245,7 @@ export default function ReportPage() {
                   <a href={galleryUrl} target="_blank" rel="noopener noreferrer"
                     className="neo-button inline-flex items-center gap-1.5 px-3 py-1.5"
                     style={{ backgroundColor: "#F0EFEC", color: "#1A1A1A", fontSize: 12 }}>
-                    <ExternalLink size={11} /> 갤러리 바로가기
+                    <ExternalLink size={11} /> {t["report.gallery_link_btn"]}
                   </a>
                 )}
               </div>
@@ -248,10 +254,10 @@ export default function ReportPage() {
             {/* ② AI 한줄 요약 — 타이틀 바로 아래 */}
             <div className="neo-card neo-card-static p-5" style={{ backgroundColor: "#FFD600" }}>
               <p className="text-xs font-black mb-2 uppercase tracking-widest" style={{ color: "#1A1A1A", opacity: 0.55 }}>
-                🤖 AI 한줄 요약
+                {t["report.ai_summary_label"]}
               </p>
               <p className="text-lg font-black leading-snug" style={{ color: "#1A1A1A" }}>
-                {insights?.critic_one_liner || "분석 결과가 없습니다."}
+                {insights?.critic_one_liner || t["report.no_summary"]}
               </p>
             </div>
 
@@ -274,7 +280,7 @@ export default function ReportPage() {
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style={{ color: "#9CA3AF" }}>
                 <span className="flex items-center gap-1">
                   <Database size={11} />
-                  수집 기간: <span className="font-semibold">{meta.date_range || "–"}</span>
+                  {t["report.collection_period_label"]} <span className="font-semibold">{meta.date_range || "–"}</span>
                   <button
                     onClick={() => setShowPeriodModal(true)}
                     className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border text-[9px] font-black transition-colors"
@@ -289,7 +295,7 @@ export default function ReportPage() {
                 <span>
                   표본 {meta.core_posts ?? 100}개 (최고 댓글 {meta.max_comment_post?.comment_count ?? "?"}개 / 커트라인 {meta.min_comment_post?.comment_count ?? "?"}개)
                   {" "}
-                  <span style={{ fontSize: 10 }}>· 댓글수 기준 상위 화제글</span>
+                  <span style={{ fontSize: 10 }}>· {t["report.top_posts_label"]}</span>
                 </span>
               </div>
             )}
@@ -304,19 +310,25 @@ export default function ReportPage() {
         <div className="flex items-start gap-3 p-4 rounded-xl border-2"
           style={{ backgroundColor: "#FAFAFA", borderColor: "#E2E8F0" }}>
           <AlertTriangle size={17} className="shrink-0 mt-0.5" style={{ color: "#B45309" }} />
-          <p className="text-sm leading-relaxed font-medium" style={{ color: "#4A4A4A" }}>
-            이 리포트는 <strong>핵심 화제글(최대 {meta?.core_posts || 100}개)</strong> 기반으로 작성되었으며, 갤러리 전체 여론을 100% 대변하지 않을 수 있습니다. 카드 하단 링크로 원문을 직접 확인하세요.
-          </p>
+          <p className="text-sm leading-relaxed font-medium" style={{ color: "#4A4A4A" }}
+            dangerouslySetInnerHTML={{
+              __html: t["report.reliability_notice"]
+                .replace("{n}", String(meta?.core_posts || 100))
+                .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"),
+            }}
+          />
         </div>
 
         {/* ── 주요 이슈 — 2열, 감성바 + 열기지수 ───── */}
         <section>
           <div className="flex items-center gap-2 mb-1">
             <Flame size={18} style={{ color: "#1A1A1A" }} />
-            <h2 className="text-xl font-black" style={{ color: "#1A1A1A" }}>주요 이슈</h2>
+            <h2 className="text-xl font-black" style={{ color: "#1A1A1A" }}>
+              {t["report.issues_section_title"]}
+            </h2>
           </div>
           <p className="text-xs mb-5" style={{ color: "#9CA3AF" }}>
-            온도 지수: 분석 게시글 중 해당 이슈 관련 언급 비율 (0–100) · 높은 순 정렬
+            {t["report.heat_score_desc"]}
           </p>
 
           {issues.length > 0 ? (
@@ -343,7 +355,7 @@ export default function ReportPage() {
                       {issue.heat_score !== undefined && (
                         <span className="flex items-center gap-1 text-xs font-black shrink-0"
                           style={{ color: issue.heat_score >= 60 ? "#FB923C" : "#9CA3AF" }}>
-                          <Flame size={11} /> 온도 {issue.heat_score}
+                          <Flame size={11} /> {t["report.heat_label"]} {issue.heat_score}
                         </span>
                       )}
                     </div>
@@ -379,8 +391,8 @@ export default function ReportPage() {
                     {issue.sentiment_ratio && (
                       <div>
                         <div className="flex items-center justify-between text-xs font-black mb-1.5">
-                          <span style={{ color: "#FF6B6B" }}>부정 {issue.sentiment_ratio.negative}%</span>
-                          <span style={{ color: "#56D0A0" }}>긍정 {issue.sentiment_ratio.positive}%</span>
+                          <span style={{ color: "#FF6B6B" }}>{t["report.negative_label"]} {issue.sentiment_ratio.negative}%</span>
+                          <span style={{ color: "#56D0A0" }}>{t["report.positive_label"]} {issue.sentiment_ratio.positive}%</span>
                         </div>
                         <div className="flex h-2.5 rounded-full overflow-hidden border-2"
                           style={{ borderColor: "#1A1A1A" }}>
@@ -398,7 +410,9 @@ export default function ReportPage() {
                         <div>
                           {(issue.negative_posts?.length ?? 0) > 0 && (
                             <>
-                              <p className="text-xs font-black mb-1.5" style={{ color: "#FF6B6B" }}>부정</p>
+                              <p className="text-xs font-black mb-1.5" style={{ color: "#FF6B6B" }}>
+                                {t["report.negative_label"]}
+                              </p>
                               <ul className="space-y-1">
                                 {issue.negative_posts!.map((post, j) => (
                                   <li key={j}>
@@ -419,7 +433,9 @@ export default function ReportPage() {
                         <div>
                           {(issue.positive_posts?.length ?? 0) > 0 && (
                             <>
-                              <p className="text-xs font-black mb-1.5" style={{ color: "#56D0A0" }}>긍정</p>
+                              <p className="text-xs font-black mb-1.5" style={{ color: "#56D0A0" }}>
+                                {t["report.positive_label"]}
+                              </p>
                               <ul className="space-y-1">
                                 {issue.positive_posts!.map((post, j) => (
                                   <li key={j}>
@@ -443,7 +459,7 @@ export default function ReportPage() {
                 </motion.div>
               ))}
             </div>
-          ) : <Empty text="감지된 주요 이슈가 없습니다." />}
+          ) : <Empty text={t["report.no_issues"]} />}
         </section>
 
         {/* ── 게시글 추이 (하단) ───────────────────────── */}
@@ -451,7 +467,9 @@ export default function ReportPage() {
           <section>
             <div className="flex items-center gap-2 mb-5">
               <BarChart2 size={18} style={{ color: "#1A1A1A" }} />
-              <h2 className="text-xl font-black" style={{ color: "#1A1A1A" }}>기간 내 게시글 추이</h2>
+              <h2 className="text-xl font-black" style={{ color: "#1A1A1A" }}>
+                {t["report.trend_section_title"]}
+              </h2>
             </div>
             <div className="neo-card neo-card-static p-6">
               <DailyTrendChart data={meta.date_counts} />
@@ -493,7 +511,7 @@ export default function ReportPage() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-black" style={{ color: "#1A1A1A" }}>
-                  수집 기간 기준
+                  {t["report.period_modal_title"]}
                 </h3>
                 <button
                   onClick={() => setShowPeriodModal(false)}
@@ -502,22 +520,17 @@ export default function ReportPage() {
                 >×</button>
               </div>
               <p className="text-xs mb-4 leading-relaxed" style={{ color: "#4A4A4A" }}>
-                갤러리의 <strong>일평균 게시글 수</strong>를 기준으로 분석 기간을 자동 설정합니다.
-                활성 갤러리는 짧게, 조용한 갤러리는 길게 잡아 댓글 상위 표본을 적정하게 확보합니다.
+                {t["report.period_modal_desc"]}
               </p>
               <table className="w-full text-sm border-2 rounded-xl overflow-hidden" style={{ borderColor: "#1A1A1A" }}>
                 <thead>
                   <tr style={{ backgroundColor: "#1A1A1A", color: "#FFFFFF" }}>
-                    <th className="px-3 py-2 text-left font-black text-xs">일평균 게시글</th>
-                    <th className="px-3 py-2 text-left font-black text-xs">수집 기간</th>
+                    <th className="px-3 py-2 text-left font-black text-xs">{t["report.period_modal_col1"]}</th>
+                    <th className="px-3 py-2 text-left font-black text-xs">{t["report.period_modal_col2"]}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    { cond: "200개 이상",  period: "최근 7일" },
-                    { cond: "50 ~ 199개", period: "최근 14일" },
-                    { cond: "49개 이하",  period: "최근 30일" },
-                  ].map(({ cond, period }, i) => (
+                  {periodRows.map(({ cond, period }, i) => (
                     <tr key={i} style={{ borderTop: "1px solid #E2E8F0", backgroundColor: i % 2 === 0 ? "#FAFAFA" : "#FFFFFF" }}>
                       <td className="px-3 py-2.5 font-bold" style={{ color: "#4A4A4A" }}>{cond}</td>
                       <td className="px-3 py-2.5 font-black" style={{ color: "#1A1A1A" }}>{period}</td>

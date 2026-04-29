@@ -2,6 +2,7 @@ import "./globals.css";
 import { Inter } from "next/font/google";
 import { Noto_Sans_KR } from "next/font/google";
 import { fetchUITexts } from "@/lib/ui-texts";
+import { fetchSiteConfig } from "@/lib/site-config";
 import { UITextsProvider } from "@/components/UITextsProvider";
 import Navigation from "@/components/Navigation";
 
@@ -18,10 +19,13 @@ const notoSansKR = Noto_Sans_KR({
   display: "swap",
 });
 
-export const metadata = {
-  title: "DC-Thresher | AI 갤러리 분석",
-  description: "디시인사이드 갤러리 여론을 Gemini AI가 심층 분석합니다",
-};
+export async function generateMetadata() {
+  const config = await fetchSiteConfig();
+  return {
+    title:       config.title,
+    description: config.description,
+  };
+}
 
 export default async function RootLayout({
   children,

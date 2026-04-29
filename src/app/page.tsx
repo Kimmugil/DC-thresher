@@ -11,16 +11,10 @@ import { useTexts } from "@/components/UITextsProvider";
 const DC_GALLERY_URL_PATTERN =
   /^https?:\/\/gall\.dcinside\.com\/(mgallery\/|mini\/)?board\/(lists|view)\/?\?(?:[^"'<>]*[?&])?id=[a-zA-Z0-9_]+/;
 
-const STATUS_CONFIG = {
-  COMPLETED: { label: "분석 완료", icon: CheckCircle2, color: "#166534", bg: "#56D0A0" },
-  PENDING:   { label: "진행 중",   icon: Clock,        color: "#1A1A1A", bg: "#FFD600" },
-  FAILED:    { label: "실패",      icon: XCircle,      color: "#FFFFFF", bg: "#FF6B6B" },
-} as const;
-
 const CARD_ROTATIONS = [1.2, -1.0, 0.8, -1.5, 1.0, -0.8];
 
 // 롤링 텍스트 — 전체 줄을 블록으로 애니메이션 (좌우 이동 없음)
-function RollingGalleryName({ names }: { names: string[] }) {
+function RollingGalleryName({ names, prefix }: { names: string[]; prefix: string }) {
   const [idx, setIdx] = useState(0);
   useEffect(() => {
     if (names.length < 2) return;
@@ -41,7 +35,7 @@ function RollingGalleryName({ names }: { names: string[] }) {
           transition={{ duration: 0.28 }}
           className="absolute inset-x-0 text-sm text-center"
         >
-          <span className="font-semibold" style={{ color: "#9CA3AF" }}>방금 탈곡된 갤러리: </span>
+          <span className="font-semibold" style={{ color: "#9CA3AF" }}>{prefix}</span>
           <span className="font-black" style={{ color: "#1A1A1A" }}>{names[idx]}</span>
         </motion.p>
       </AnimatePresence>
@@ -52,6 +46,12 @@ function RollingGalleryName({ names }: { names: string[] }) {
 export default function Home() {
   const router = useRouter();
   const t = useTexts();
+
+  const STATUS_CONFIG = {
+    COMPLETED: { labelKey: "status.completed", icon: CheckCircle2, color: "#166534", bg: "#56D0A0" },
+    PENDING:   { labelKey: "status.pending",   icon: Clock,        color: "#1A1A1A", bg: "#FFD600" },
+    FAILED:    { labelKey: "status.failed",    icon: XCircle,      color: "#FFFFFF", bg: "#FF6B6B" },
+  } as const;
 
   const [url, setUrl]             = useState("");
   const [loading, setLoading]     = useState(false);
@@ -123,7 +123,7 @@ export default function Home() {
           </p>
 
           <div className="mb-8">
-            <RollingGalleryName names={completedNames} />
+            <RollingGalleryName names={completedNames} prefix={t["home.rolling_prefix"]} />
           </div>
 
           {/* 입력 폼 */}
@@ -189,7 +189,9 @@ export default function Home() {
         <section className="max-w-2xl mx-auto px-4 pb-4">
           <div className="flex items-center gap-2 mb-3">
             <Flame size={15} style={{ color: "#1A1A1A" }} />
-            <h2 className="text-base font-black" style={{ color: "#1A1A1A" }}>탈곡 진행 중</h2>
+            <h2 className="text-base font-black" style={{ color: "#1A1A1A" }}>
+              {t["home.pending_section_title"]}
+            </h2>
           </div>
           <div className="space-y-2">
             {pendingReports.map(r => (
@@ -204,18 +206,18 @@ export default function Home() {
                   <Loader2 size={20} className="animate-spin shrink-0" style={{ color: "#1A1A1A" }} />
                   <div className="flex-1 min-w-0">
                     <p className="font-black text-sm truncate" style={{ color: "#1A1A1A" }}>
-                      {r.gameName || r.galleryName || "분석 준비 중..."}
+                      {r.gameName || r.galleryName || t["home.pending_default_name"]}
                     </p>
                     <p className="text-xs mt-0.5" style={{ color: "#9CA3AF" }}>
                       {r.requestedAt
                         ? new Date(r.requestedAt).toLocaleString("ko-KR", {
                             month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
                           })
-                        : "방금 요청됨"}
+                        : t["home.pending_just_now"]}
                     </p>
                   </div>
                   <span className="flex items-center gap-1 text-xs font-bold shrink-0" style={{ color: "#1A1A1A" }}>
-                    결과 보기 <ChevronRight size={13} />
+                    {t["home.pending_view_result"]} <ChevronRight size={13} />
                   </span>
                 </motion.div>
               </Link>
@@ -228,11 +230,13 @@ export default function Home() {
       {doneReports.length > 0 && (
         <section className="max-w-2xl mx-auto px-4 pb-20">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-base font-black" style={{ color: "#1A1A1A" }}>최근 분석</h2>
+            <h2 className="text-base font-black" style={{ color: "#1A1A1A" }}>
+              {t["home.recent_section_title"]}
+            </h2>
             <Link href="/history"
               className="flex items-center gap-0.5 text-xs font-bold border-b-2 pb-0.5 transition-colors hover:opacity-70"
               style={{ borderColor: "#1A1A1A", color: "#1A1A1A" }}>
-              전체 보기 <ChevronRight size={13} />
+              {t["home.recent_view_all"]} <ChevronRight size={13} />
             </Link>
           </div>
 
@@ -257,7 +261,7 @@ export default function Home() {
                       <span
                         className="shrink-0 flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-full border-2"
                         style={{ backgroundColor: cfg.bg, borderColor: "#1A1A1A", color: cfg.color }}>
-                        <Icon size={10} />{cfg.label}
+                        <Icon size={10} />{t[cfg.labelKey]}
                       </span>
                     </div>
                     {r.oneLiner && (

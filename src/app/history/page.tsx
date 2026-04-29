@@ -21,9 +21,9 @@ interface Report {
 }
 
 const STATUS_CONFIG = {
-  COMPLETED: { label: "분석 완료", Icon: CheckCircle2, bg: "#56D0A0", color: "#166534" },
-  PENDING:   { label: "진행 중",   Icon: Clock,        bg: "#FFD600", color: "#1A1A1A" },
-  FAILED:    { label: "실패",      Icon: XCircle,      bg: "#FF6B6B", color: "#FFFFFF" },
+  COMPLETED: { labelKey: "status.completed", Icon: CheckCircle2, bg: "#56D0A0", color: "#166534" },
+  PENDING:   { labelKey: "status.pending",   Icon: Clock,        bg: "#FFD600", color: "#1A1A1A" },
+  FAILED:    { labelKey: "status.failed",    Icon: XCircle,      bg: "#FF6B6B", color: "#FFFFFF" },
 } as const;
 
 export default function HistoryPage() {
@@ -70,7 +70,7 @@ export default function HistoryPage() {
             className="neo-button flex items-center gap-2 px-5 py-2.5 text-sm"
             style={{ backgroundColor: "#FFD600", color: "#1A1A1A" }}
           >
-            <Plus size={15} /> 새 분석
+            <Plus size={15} /> {t["history.new_analysis_btn"]}
           </button>
         </div>
 
@@ -132,7 +132,7 @@ export default function HistoryPage() {
                         {report.status === "PENDING"
                           ? <Loader2 size={10} className="animate-spin" />
                           : <Icon size={10} />}
-                        {cfg.label}
+                        {t[cfg.labelKey]}
                       </span>
                       <div className="min-w-0">
                         <p className="font-black text-sm truncate transition-colors group-hover:underline"

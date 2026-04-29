@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Archive, Settings } from "lucide-react";
-
-const MAIN_LINKS = [
-  { href: "/",        label: "홈",     icon: <Home    size={15} /> },
-  { href: "/history", label: "보관함", icon: <Archive size={15} /> },
-];
+import { useTexts } from "@/components/UITextsProvider";
 
 export default function Navigation() {
   const pathname = usePathname();
+  const t        = useTexts();
+
+  const MAIN_LINKS = [
+    { href: "/",        label: t["nav.home"],    icon: <Home    size={15} /> },
+    { href: "/history", label: t["nav.history"], icon: <Archive size={15} /> },
+  ];
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -23,7 +25,7 @@ export default function Navigation() {
         <div className="flex items-center gap-6">
           <Link href="/" className="font-black text-lg flex items-center gap-2"
             style={{ color: "#1A1A1A" }}>
-            🚜 <span className="hidden sm:inline">DC 탈곡기</span>
+            🚜 <span className="hidden sm:inline">{t["nav.logo"]}</span>
           </Link>
 
           <div className="flex items-center gap-1">
@@ -70,7 +72,7 @@ export default function Navigation() {
           }}
         >
           <Settings size={14} />
-          <span className="hidden md:inline">관리자</span>
+          <span className="hidden md:inline">{t["nav.admin"]}</span>
         </Link>
 
       </div>

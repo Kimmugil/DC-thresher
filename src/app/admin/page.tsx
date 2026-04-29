@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { Lock, Eye, EyeOff, Trash2, ShieldCheck, Loader2, RefreshCw } from "lucide-react";
 import axios from "axios";
+import { useTexts } from "@/components/UITextsProvider";
 
 export default function AdminPage() {
+  const t = useTexts();
+
   const [password,        setPassword]        = useState("");
   const [showPw,          setShowPw]          = useState(false);
   const [authLoading,     setAuthLoading]     = useState(false);
@@ -25,7 +28,7 @@ export default function AdminPage() {
         fetchReports();
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || "비밀번호가 틀렸거나 서버 오류입니다.");
+      setError(err.response?.data?.message || t["admin.error_auth"]);
     } finally {
       setAuthLoading(false);
     }
@@ -37,19 +40,19 @@ export default function AdminPage() {
       const res = await axios.get("/api/admin/reports");
       setReports(res.data.reports || []);
     } catch {
-      setError("리포트 목록을 불러오지 못했습니다.");
+      setError(t["admin.error_load"]);
     } finally {
       setReportsLoading(false);
     }
   };
 
   const handleAction = async (rowIndex: number, action: "HIDE" | "SHOW" | "DELETE") => {
-    if (action === "DELETE" && !confirm("영구 삭제합니다. 복구할 수 없습니다.")) return;
+    if (action === "DELETE" && !confirm(t["admin.delete_confirm"])) return;
     try {
       await axios.post("/api/admin/reports", { rowIndex, action });
       fetchReports();
     } catch {
-      alert("작업에 실패했습니다.");
+      alert(t["admin.error_action"]);
     }
   };
 
@@ -61,7 +64,7 @@ export default function AdminPage() {
         <form onSubmit={handleAuth} className="neo-card w-full max-w-sm p-8">
           <div className="flex items-center gap-2 mb-6">
             <ShieldCheck size={22} style={{ color: "#1A1A1A" }} />
-            <h2 className="text-xl font-black" style={{ color: "#1A1A1A" }}>관리자 패널</h2>
+            <h2 className="text-xl font-black" style={{ color: "#1A1A1A" }}>{t["admin.login_title"]}</h2>
           </div>
 
           {/* 비밀번호 입력 */}
@@ -69,7 +72,7 @@ export default function AdminPage() {
             <Lock size={15} className="ml-2 shrink-0" style={{ color: "#9CA3AF" }} />
             <input
               type={showPw ? "text" : "password"}
-              placeholder="비밀번호 입력"
+              placeholder={t["admin.password_placeholder"]}
               value={password}
               onChange={e => setPassword(e.target.value)}
               className="flex-1 py-2.5 text-sm outline-none bg-transparent"
@@ -96,7 +99,7 @@ export default function AdminPage() {
             className="neo-button w-full flex items-center justify-center gap-2 py-3 text-sm font-black"
             style={{ backgroundColor: "#1A1A1A", color: "#FFFFFF" }}
           >
-            {authLoading ? <Loader2 size={14} className="animate-spin" /> : "로그인"}
+            {authLoading ? <Loader2 size={14} className="animate-spin" /> : t["admin.login_btn"]}
           </button>
         </form>
       </main>
@@ -112,7 +115,7 @@ export default function AdminPage() {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2">
             <ShieldCheck size={20} style={{ color: "#1A1A1A" }} />
-            <h1 className="text-2xl font-black" style={{ color: "#1A1A1A" }}>관리자 대시보드</h1>
+            <h1 className="text-2xl font-black" style={{ color: "#1A1A1A" }}>{t["admin.dashboard_title"]}</h1>
           </div>
           <button
             onClick={fetchReports}
@@ -121,7 +124,7 @@ export default function AdminPage() {
             style={{ backgroundColor: "#F0EFEC", color: "#1A1A1A" }}
           >
             <RefreshCw size={13} className={reportsLoading ? "animate-spin" : ""} />
-            새로고침
+            {t["admin.refresh_btn"]}
           </button>
         </div>
 
@@ -142,9 +145,9 @@ export default function AdminPage() {
             <table className="w-full text-left text-sm">
               <thead className="border-b-2" style={{ borderColor: "#1A1A1A", backgroundColor: "#F0EFEC" }}>
                 <tr>
-                  <th className="px-5 py-3 font-black text-xs" style={{ color: "#1A1A1A" }}>상태 / 게임명</th>
-                  <th className="px-5 py-3 font-black text-xs" style={{ color: "#1A1A1A" }}>요청일</th>
-                  <th className="px-5 py-3 font-black text-xs text-right" style={{ color: "#1A1A1A" }}>관리</th>
+                  <th className="px-5 py-3 font-black text-xs" style={{ color: "#1A1A1A" }}>{t["admin.col_status_game"]}</th>
+                  <th className="px-5 py-3 font-black text-xs" style={{ color: "#1A1A1A" }}>{t["admin.col_requested_at"]}</th>
+                  <th className="px-5 py-3 font-black text-xs text-right" style={{ color: "#1A1A1A" }}>{t["admin.col_manage"]}</th>
                 </tr>
               </thead>
               <tbody>
@@ -152,7 +155,7 @@ export default function AdminPage() {
                   <tr>
                     <td colSpan={3} className="px-5 py-12 text-center text-sm font-bold"
                       style={{ color: "#9CA3AF" }}>
-                      리포트가 없습니다.
+                      {t["admin.empty_reports"]}
                     </td>
                   </tr>
                 ) : reports.map((r, i) => (
@@ -181,12 +184,13 @@ export default function AdminPage() {
                               r.status === "FAILED" ? "#FFFFFF" : "#1A1A1A",
                           }}
                         >
-                          {r.status === "COMPLETED" ? "완료" : r.status === "PENDING" ? "진행 중" : "실패"}
+                          {r.status === "COMPLETED" ? t["status.completed"] :
+                           r.status === "PENDING"   ? t["status.pending"]   : t["status.failed"]}
                         </span>
                         {r.hidden && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
                             style={{ borderColor: "#E2E8F0", color: "#9CA3AF" }}>
-                            숨김
+                            {t["admin.hidden_badge"]}
                           </span>
                         )}
                       </div>
@@ -207,19 +211,19 @@ export default function AdminPage() {
                           onClick={() => handleAction(r.index, r.hidden ? "SHOW" : "HIDE")}
                           className="neo-button flex items-center gap-1 px-3 py-1.5 text-xs"
                           style={{ backgroundColor: "#F0EFEC", color: "#1A1A1A" }}
-                          title={r.hidden ? "숨김 해제" : "숨기기"}
+                          title={r.hidden ? t["admin.show_title"] : t["admin.hide_title"]}
                         >
                           {r.hidden ? <Eye size={12} /> : <EyeOff size={12} />}
-                          {r.hidden ? "해제" : "숨김"}
+                          {r.hidden ? t["admin.show_btn"] : t["admin.hide_btn"]}
                         </button>
                         <button
                           onClick={() => handleAction(r.index, "DELETE")}
                           className="neo-button flex items-center gap-1 px-3 py-1.5 text-xs"
                           style={{ backgroundColor: "#FF6B6B", color: "#FFFFFF", borderColor: "#1A1A1A" }}
-                          title="영구 삭제"
+                          title={t["admin.delete_title"]}
                         >
                           <Trash2 size={12} />
-                          삭제
+                          {t["admin.delete_btn"]}
                         </button>
                       </div>
                     </td>
