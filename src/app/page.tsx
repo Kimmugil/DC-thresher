@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ArrowRight, Loader2, AlertCircle, ChevronRight, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Search, ArrowRight, Loader2, AlertCircle, ChevronRight, CheckCircle2, Clock, XCircle, Flame } from "lucide-react";
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
 
@@ -62,6 +62,9 @@ export default function Home() {
   const [statusMsg, setStatusMsg] = useState("");
   const [recentReports, setRecentReports] = useState<any[]>([]);
 
+  const pendingReports = recentReports.filter(r => r.status === "PENDING");
+  const doneReports    = recentReports.filter(r => r.status !== "PENDING").slice(0, 6);
+
   const completedNames = recentReports
     .filter(r => r.status === "COMPLETED" && (r.gameName || r.galleryName))
     .map(r => r.gameName || r.galleryName);
@@ -70,7 +73,7 @@ export default function Home() {
     const fetch = async () => {
       try {
         const res = await axios.get("/api/history");
-        setRecentReports(res.data.reports?.slice(0, 6) || []);
+        setRecentReports(res.data.reports?.slice(0, 12) || []);
       } catch { /* ignore */ }
     };
     fetch();
@@ -190,8 +193,49 @@ export default function Home() {
         </motion.div>
       </section>
 
+      {/* ── 탈곡 진행 중 배너 ───────────────────────────────────── */}
+      {pendingReports.length > 0 && (
+        <section className="max-w-2xl mx-auto px-4 pb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Flame size={15} style={{ color: "#1A1A1A" }} />
+            <h2 className="text-base font-black" style={{ color: "#1A1A1A" }}>탈곡 진행 중</h2>
+          </div>
+          <div className="space-y-2">
+            {pendingReports.map(r => (
+              <Link key={r.uuid} href={`/history/${r.uuid}`}>
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-4 px-5 py-4 rounded-2xl border-2 cursor-pointer"
+                  style={{ borderColor: "#1A1A1A", backgroundColor: "#FFFDE7" }}
+                  whileHover={{ backgroundColor: "#FFF9C4" }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <Loader2 size={20} className="animate-spin shrink-0" style={{ color: "#1A1A1A" }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-sm truncate" style={{ color: "#1A1A1A" }}>
+                      {r.gameName || r.galleryName || "분석 준비 중..."}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: "#9CA3AF" }}>
+                      {r.requestedAt
+                        ? new Date(r.requestedAt).toLocaleString("ko-KR", {
+                            month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                          })
+                        : "방금 요청됨"}
+                    </p>
+                  </div>
+                  <span className="flex items-center gap-1 text-xs font-bold shrink-0"
+                    style={{ color: "#1A1A1A" }}>
+                    결과 보기 <ChevronRight size={13} />
+                  </span>
+                </motion.div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── 최근 분석 카드 ──────────────────────────────────────── */}
-      {recentReports.length > 0 && (
+      {doneReports.length > 0 && (
         <section className="max-w-2xl mx-auto px-4 pb-20">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-base font-black" style={{ color: "#1A1A1A" }}>최근 분석</h2>
@@ -203,11 +247,11 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-            {recentReports.map((r, i) => {
+            {doneReports.map((r, i) => {
               const status = r.status as keyof typeof STATUS_CONFIG;
-              const cfg    = STATUS_CONFIG[status] ?? STATUS_CONFIG.PENDING;
+              const cfg    = STATUS_CONFIG[status] ?? STATUS_CONFIG.COMPLETED;
               const Icon   = cfg.icon;
-              const name   = r.gameName || r.galleryName || "분석 중...";
+              const name   = r.gameName || r.galleryName || "-";
               const rot    = CARD_ROTATIONS[i % CARD_ROTATIONS.length];
 
               return (
