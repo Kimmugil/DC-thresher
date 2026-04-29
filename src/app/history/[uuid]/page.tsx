@@ -350,7 +350,7 @@ export default function ReportPage() {
             <h2 className="text-xl font-black" style={{ color: "#1A1A1A" }}>주요 이슈</h2>
           </div>
           <p className="text-xs mb-5" style={{ color: "#9CA3AF" }}>
-            열기 지수: 분석 게시글 중 해당 이슈 관련 언급 비율 (0–100) · 높은 순 정렬
+            온도 지수: 분석 게시글 중 해당 이슈 관련 언급 비율 (0–100) · 높은 순 정렬
           </p>
 
           {issues.length > 0 ? (
@@ -374,7 +374,7 @@ export default function ReportPage() {
                     {issue.heat_score !== undefined && (
                       <span className="flex items-center gap-1 text-xs font-black shrink-0"
                         style={{ color: issue.heat_score >= 60 ? "#FB923C" : "#9CA3AF" }}>
-                        <Flame size={11} /> 열기 {issue.heat_score}
+                        <Flame size={11} /> 온도 {issue.heat_score}
                       </span>
                     )}
                   </div>
