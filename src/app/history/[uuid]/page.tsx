@@ -216,18 +216,14 @@ export default function ReportPage() {
 
             {/* ① 타이틀 블록 */}
             <div>
-              {/* 상태 배지 + 분석 완료 시점 */}
-              <div className="flex items-center gap-2.5 mb-3 flex-wrap">
-                <span className="inline-flex items-center gap-1 text-xs font-black px-3 py-1 rounded-full border-2"
-                  style={{ backgroundColor: "#56D0A0", borderColor: "#1A1A1A", color: "#1A1A1A" }}>
-                  <CheckCircle2 size={10} /> {t["report.status_completed"]}
-                </span>
-                <span className="flex items-center gap-1 text-sm" style={{ color: "#9CA3AF" }}>
-                  <Calendar size={13} />
-                  <span className="font-semibold">{t["report.completed_at_label"]}</span>
-                  <span>{report?.completedAt ? new Date(report.completedAt).toLocaleString("ko-KR") : "-"}</span>
-                </span>
-              </div>
+              {/* 분석 완료 시점 — 뱃지 없이 작은 회색 텍스트만 */}
+              {report?.completedAt && (
+                <p className="flex items-center gap-1 text-xs mb-3" style={{ color: "#9CA3AF" }}>
+                  <Calendar size={11} />
+                  <span>{t["report.completed_at_label"]}</span>
+                  <span>{new Date(report.completedAt).toLocaleString("ko-KR")}</span>
+                </p>
+              )}
 
               {/* 게임명 h1 */}
               <h1 className="text-3xl md:text-4xl font-black mb-2" style={{ color: "#1A1A1A" }}>
@@ -251,13 +247,15 @@ export default function ReportPage() {
               </div>
             </div>
 
-            {/* ② AI 한줄 요약 — 타이틀 바로 아래 */}
-            <div className="neo-card neo-card-static p-5" style={{ backgroundColor: "#FFD600" }}>
-              <p className="text-xs font-black mb-2 uppercase tracking-widest" style={{ color: "#1A1A1A", opacity: 0.55 }}>
+            {/* ② AI 한줄 요약 — 흰 카드 + 텍스트 노란 하이라이트 */}
+            <div className="neo-card neo-card-static p-5">
+              <p className="text-xs font-black mb-2 uppercase tracking-widest" style={{ color: "#9CA3AF" }}>
                 {t["report.ai_summary_label"]}
               </p>
               <p className="text-lg font-black leading-snug" style={{ color: "#1A1A1A" }}>
-                {insights?.critic_one_liner || t["report.no_summary"]}
+                <span style={{ backgroundColor: "#FFD600", padding: "2px 4px", lineHeight: 1.6 }}>
+                  {insights?.critic_one_liner || t["report.no_summary"]}
+                </span>
               </p>
             </div>
 
@@ -418,9 +416,10 @@ export default function ReportPage() {
                                   <li key={j}>
                                     <a href={post.url} target="_blank" rel="noopener noreferrer"
                                       className="text-xs flex items-start gap-1 font-semibold hover:underline"
-                                      style={{ color: "#4D96FF" }} title={post.title}>
+                                      style={{ color: "#6B7280" }} title={post.title}>
                                       <span className="shrink-0 mt-px">·</span>
-                                      <span className="break-keep">{post.title}</span>
+                                      <span className="break-keep flex-1">{post.title}</span>
+                                      <ExternalLink size={8} className="shrink-0 mt-0.5 opacity-40" />
                                     </a>
                                   </li>
                                 ))}
@@ -441,9 +440,10 @@ export default function ReportPage() {
                                   <li key={j}>
                                     <a href={post.url} target="_blank" rel="noopener noreferrer"
                                       className="text-xs flex items-start gap-1 font-semibold hover:underline"
-                                      style={{ color: "#4D96FF" }} title={post.title}>
+                                      style={{ color: "#6B7280" }} title={post.title}>
                                       <span className="shrink-0 mt-px">·</span>
-                                      <span className="break-keep">{post.title}</span>
+                                      <span className="break-keep flex-1">{post.title}</span>
+                                      <ExternalLink size={8} className="shrink-0 mt-0.5 opacity-40" />
                                     </a>
                                   </li>
                                 ))}

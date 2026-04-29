@@ -25,7 +25,7 @@ export default function Navigation() {
         <div className="flex items-center gap-6">
           <Link href="/" className="font-black text-lg flex items-center gap-2"
             style={{ color: "#1A1A1A" }}>
-            🚜 <span className="hidden sm:inline">{t["nav.logo"]}</span>
+            <span className="hidden sm:inline">{t["nav.logo"]}</span>
           </Link>
 
           <div className="flex items-center gap-1">
