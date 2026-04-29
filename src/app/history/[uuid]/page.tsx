@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Loader2, Calendar, AlertTriangle,
-  CheckCircle2, Clock, Database, FileText,
+  CheckCircle2, Clock, Database,
   Flame, ExternalLink, BarChart2,
 } from "lucide-react";
 import axios from "axios";
@@ -206,27 +206,35 @@ export default function ReportPage() {
       <header className="border-b-2 py-10 bg-white" style={{ borderColor: "#1A1A1A" }}>
         <div className="max-w-6xl mx-auto px-5">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col gap-6">
+            className="flex flex-col gap-5">
 
-            {/* 타이틀 */}
+            {/* ① 타이틀 블록 */}
             <div>
-              <div className="flex items-center gap-2.5 mb-3">
+              {/* 상태 배지 + 분석 완료 시점 */}
+              <div className="flex items-center gap-2.5 mb-3 flex-wrap">
                 <span className="inline-flex items-center gap-1 text-xs font-black px-3 py-1 rounded-full border-2"
                   style={{ backgroundColor: "#56D0A0", borderColor: "#1A1A1A", color: "#1A1A1A" }}>
                   <CheckCircle2 size={10} /> {t["report.status_completed"]}
                 </span>
-                <span className="flex items-center gap-1 text-sm font-semibold" style={{ color: "#9CA3AF" }}>
+                <span className="flex items-center gap-1 text-sm" style={{ color: "#9CA3AF" }}>
                   <Calendar size={13} />
-                  {report?.completedAt ? new Date(report.completedAt).toLocaleString("ko-KR") : "-"}
+                  <span className="font-semibold">분석 완료 시점:</span>
+                  <span>{report?.completedAt ? new Date(report.completedAt).toLocaleString("ko-KR") : "-"}</span>
                 </span>
               </div>
+
+              {/* 게임명 h1 */}
               <h1 className="text-3xl md:text-4xl font-black mb-2" style={{ color: "#1A1A1A" }}>
                 {report?.gameName || t["report.game_unknown"]}
               </h1>
+
+              {/* 갤러리명 — 게임명과 다를 때만 표시 */}
               <div className="flex items-center gap-3 flex-wrap">
-                <p className="text-base font-bold" style={{ color: "#4A4A4A" }}>
-                  {report?.galleryName || ""}
-                </p>
+                {report?.galleryName && report.galleryName !== report.gameName && (
+                  <p className="text-base font-bold" style={{ color: "#4A4A4A" }}>
+                    {report.galleryName}
+                  </p>
+                )}
                 {galleryUrl && (
                   <a href={galleryUrl} target="_blank" rel="noopener noreferrer"
                     className="neo-button inline-flex items-center gap-1.5 px-3 py-1.5"
@@ -237,86 +245,17 @@ export default function ReportPage() {
               </div>
             </div>
 
-            {/* 투명성 지표 2칸 */}
-            <div className="grid md:grid-cols-2 gap-4">
-
-              {/* 분석 대상 */}
-              <div className="neo-card neo-card-static p-4 flex flex-col gap-1.5">
-                <div className="flex items-center gap-2 font-black text-sm mb-1" style={{ color: "#1A1A1A" }}>
-                  <Database size={15} /> 분석 대상
-                </div>
-                <p className="text-sm flex items-center gap-1.5" style={{ color: "#4A4A4A" }}>
-                  수집 기간: {meta?.date_range || "알 수 없음"}
-                  <button
-                    onClick={() => setShowPeriodModal(true)}
-                    className="inline-flex items-center justify-center w-4 h-4 rounded-full border text-[10px] font-black shrink-0 transition-colors"
-                    style={{ borderColor: "#9CA3AF", color: "#9CA3AF", lineHeight: 1 }}
-                    onMouseEnter={e => {
-                      (e.currentTarget as HTMLElement).style.borderColor = "#1A1A1A";
-                      (e.currentTarget as HTMLElement).style.color = "#1A1A1A";
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLElement).style.borderColor = "#9CA3AF";
-                      (e.currentTarget as HTMLElement).style.color = "#9CA3AF";
-                    }}
-                  >?</button>
-                </p>
-                <p className="text-sm" style={{ color: "#4A4A4A" }}>
-                  전체 게시글: {meta?.total_posts ? `${meta.total_posts.toLocaleString()}개` : "알 수 없음"}
-                </p>
-                <p className="text-xs mt-1.5" style={{ color: "#9CA3AF" }}>
-                  ※ 표본 추출: 댓글 수 기준 상위 {meta?.core_posts || 100}개 화제글을 AI가 집중 분석
-                </p>
-              </div>
-
-              {/* 표본 데이터 현황 */}
-              <div className="neo-card neo-card-static p-4 flex flex-col gap-1.5">
-                <div className="flex items-center gap-2 font-black text-sm mb-1" style={{ color: "#1A1A1A" }}>
-                  <FileText size={15} /> 표본 데이터 현황 (댓글수 기준)
-                </div>
-                {/* 최고 댓글수 */}
-                <div className="text-sm space-y-0.5">
-                  <span style={{ color: "#4A4A4A" }}>최고 댓글수: <strong>{meta?.max_comment_post?.comment_count ?? "-"}개</strong></span>
-                  {meta?.max_comment_post && (
-                    meta.max_comment_post.url
-                      ? <a href={meta.max_comment_post.url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-start gap-0.5 hover:underline break-keep"
-                          style={{ color: "#4D96FF" }}>
-                          <span className="break-words min-w-0">↳ {meta.max_comment_post.title}</span>
-                          <ExternalLink size={10} className="shrink-0 mt-0.5" />
-                        </a>
-                      : <p className="break-words" style={{ color: "#9CA3AF" }}>↳ {meta.max_comment_post.title}</p>
-                  )}
-                </div>
-                {/* 커트라인 */}
-                <div className="text-sm space-y-0.5">
-                  <span style={{ color: "#4A4A4A" }}>커트라인: <strong>{meta?.min_comment_post?.comment_count ?? "-"}개</strong></span>
-                  {meta?.min_comment_post && (
-                    meta.min_comment_post.url
-                      ? <a href={meta.min_comment_post.url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-start gap-0.5 hover:underline break-keep"
-                          style={{ color: "#4D96FF" }}>
-                          <span className="break-words min-w-0">↳ {meta.min_comment_post.title}</span>
-                          <ExternalLink size={10} className="shrink-0 mt-0.5" />
-                        </a>
-                      : <p className="break-words" style={{ color: "#9CA3AF" }}>↳ {meta.min_comment_post.title}</p>
-                  )}
-                </div>
-              </div>
-
-            </div>
-
-            {/* AI 한줄 요약 */}
+            {/* ② AI 한줄 요약 — 타이틀 바로 아래 */}
             <div className="neo-card neo-card-static p-5" style={{ backgroundColor: "#FFD600" }}>
               <p className="text-xs font-black mb-2 uppercase tracking-widest" style={{ color: "#1A1A1A", opacity: 0.55 }}>
                 🤖 AI 한줄 요약
               </p>
               <p className="text-lg font-black leading-snug" style={{ color: "#1A1A1A" }}>
-                "{insights?.critic_one_liner || "분석 결과가 없습니다."}"
+                {insights?.critic_one_liner || "분석 결과가 없습니다."}
               </p>
             </div>
 
-            {/* 키워드 배지 */}
+            {/* ③ 키워드 배지 — 한줄 요약 바로 아래 */}
             {keywords.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {keywords.map((kw, i) => (
@@ -329,6 +268,32 @@ export default function ReportPage() {
                 ))}
               </div>
             )}
+
+            {/* ④ 분석 메타 — 작은 회색 텍스트 한 줄 (카드 대신) */}
+            {meta && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style={{ color: "#9CA3AF" }}>
+                <span className="flex items-center gap-1">
+                  <Database size={11} />
+                  수집 기간: <span className="font-semibold">{meta.date_range || "–"}</span>
+                  <button
+                    onClick={() => setShowPeriodModal(true)}
+                    className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border text-[9px] font-black transition-colors"
+                    style={{ borderColor: "#C8C8C8", color: "#C8C8C8", lineHeight: 1 }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "#1A1A1A"; (e.currentTarget as HTMLElement).style.color = "#1A1A1A"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "#C8C8C8"; (e.currentTarget as HTMLElement).style.color = "#C8C8C8"; }}
+                  >?</button>
+                </span>
+                <span>·</span>
+                <span>전체 {meta.total_posts?.toLocaleString() ?? "?"}개</span>
+                <span>·</span>
+                <span>
+                  표본 {meta.core_posts ?? 100}개 (최고 댓글 {meta.max_comment_post?.comment_count ?? "?"}개 / 커트라인 {meta.min_comment_post?.comment_count ?? "?"}개)
+                  {" "}
+                  <span style={{ fontSize: 10 }}>· 댓글수 기준 상위 화제글</span>
+                </span>
+              </div>
+            )}
+
           </motion.div>
         </div>
       </header>
@@ -438,9 +403,10 @@ export default function ReportPage() {
                                 {issue.negative_posts!.map((post, j) => (
                                   <li key={j}>
                                     <a href={post.url} target="_blank" rel="noopener noreferrer"
-                                      className="text-xs block break-keep font-semibold hover:underline"
+                                      className="text-xs flex items-start gap-1 font-semibold hover:underline"
                                       style={{ color: "#4D96FF" }} title={post.title}>
-                                      · {post.title}
+                                      <span className="shrink-0 mt-px">·</span>
+                                      <span className="break-keep">{post.title}</span>
                                     </a>
                                   </li>
                                 ))}
@@ -458,9 +424,10 @@ export default function ReportPage() {
                                 {issue.positive_posts!.map((post, j) => (
                                   <li key={j}>
                                     <a href={post.url} target="_blank" rel="noopener noreferrer"
-                                      className="text-xs block break-keep font-semibold hover:underline"
+                                      className="text-xs flex items-start gap-1 font-semibold hover:underline"
                                       style={{ color: "#4D96FF" }} title={post.title}>
-                                      · {post.title}
+                                      <span className="shrink-0 mt-px">·</span>
+                                      <span className="break-keep">{post.title}</span>
                                     </a>
                                   </li>
                                 ))}
