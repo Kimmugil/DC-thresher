@@ -28,11 +28,17 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // 서버에서 UI 텍스트를 미리 가져와 클라이언트 컴포넌트에 주입
   const texts = await fetchUITexts();
 
   return (
     <html lang="ko" className={`${inter.variable} ${notoSansKR.variable}`}>
+      <head>
+        {/* Pretendard — 네오 브루탈리즘 한국어 폰트 */}
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
+        />
+      </head>
       <body>
         <UITextsProvider texts={texts}>
           <Navigation />
