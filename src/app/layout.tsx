@@ -19,6 +19,10 @@ const notoSansKR = Noto_Sans_KR({
   display: "swap",
 });
 
+// Config / UI_Texts를 구글 시트에서 매 요청마다 읽어야 하므로 정적 캐시 비활성화
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function generateMetadata() {
   const config = await fetchSiteConfig();
   return {
