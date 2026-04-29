@@ -38,17 +38,21 @@ function RollingGalleryName({ names }: { names: string[] }) {
   if (names.length === 0) return null;
 
   return (
-    <div className="inline-flex items-center gap-2 overflow-hidden">
-      <span className="text-sm font-semibold" style={{ color: "#9CA3AF" }}>방금 탈곡된 갤러리:</span>
-      <div className="relative h-6 overflow-hidden" style={{ minWidth: 120 }}>
+    <div className="inline-flex items-center gap-2">
+      <span className="text-sm font-semibold shrink-0" style={{ color: "#9CA3AF" }}>방금 탈곡된 갤러리:</span>
+      {/* 현재 이름의 너비를 보이지 않는 스페이서로 확보 → overflow 없이도 텍스트가 안 잘림 */}
+      <div className="relative h-6">
+        <span className="invisible text-sm font-black whitespace-nowrap select-none" aria-hidden>
+          {names[idx]}
+        </span>
         <AnimatePresence mode="wait">
           <motion.span
             key={idx}
-            initial={{ y: 20, opacity: 0 }}
+            initial={{ y: 16, opacity: 0 }}
             animate={{ y: 0,  opacity: 1 }}
-            exit={{ y: -20, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="absolute text-sm font-black whitespace-nowrap"
+            exit={{ y: -16, opacity: 0 }}
+            transition={{ duration: 0.28 }}
+            className="absolute inset-0 text-sm font-black whitespace-nowrap"
             style={{ color: "#1A1A1A" }}
           >
             {names[idx]}
