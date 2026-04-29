@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Loader2, Calendar, AlertTriangle,
   CheckCircle2, Clock, Users, Database, FileText,
-  Flame, Filter, ExternalLink,
+  Flame, ExternalLink,
 } from "lucide-react";
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
@@ -29,8 +29,8 @@ interface ScrapeMeta {
   total_posts?: number;
   core_posts?: number;
   date_range?: string;
-  max_comment_post?: { title: string; comment_count: number };
-  min_comment_post?: { title: string; comment_count: number };
+  max_comment_post?: { title: string; comment_count: number; url?: string };
+  min_comment_post?: { title: string; comment_count: number; url?: string };
 }
 interface AiInsights {
   critic_one_liner?: string;
@@ -240,42 +240,66 @@ export default function ReportPage() {
               </div>
             </div>
 
-            {/* 투명성 지표 3개 */}
-            <div className="grid md:grid-cols-3 gap-4">
-              {[
-                {
-                  Icon: Database, label: "분석 대상",
-                  rows: [
-                    `수집 기간: ${meta?.date_range || "알 수 없음"}`,
-                    `전체 게시글: ${meta?.total_posts ? `${meta.total_posts.toLocaleString()}개` : "알 수 없음"}`,
-                  ],
-                },
-                {
-                  Icon: Filter, label: "표본 추출 방법",
-                  rows: [`댓글 수 기준 상위 ${meta?.core_posts || 100}개 화제글을 선별해 AI가 집중 분석`],
-                },
-                {
-                  Icon: FileText, label: "표본 데이터 현황",
-                  rows: [
-                    `최고 댓글수: ${meta?.max_comment_post?.comment_count ?? "-"}개 (${meta?.max_comment_post?.title ?? "-"})`,
-                    `커트라인: ${meta?.min_comment_post?.comment_count ?? "-"}개 (${meta?.min_comment_post?.title ?? "-"})`,
-                  ],
-                },
-              ].map(({ Icon, label, rows }) => (
-                <div key={label} className="neo-card p-4 flex flex-col gap-2">
-                  <div className="flex items-center gap-2 font-black text-sm mb-1" style={{ color: "#1A1A1A" }}>
-                    <Icon size={15} />
-                    {label}
-                  </div>
-                  {rows.map((row, j) => (
-                    <p key={j} className="text-sm truncate" style={{ color: "#4A4A4A" }} title={row}>{row}</p>
-                  ))}
+            {/* 투명성 지표 2개 */}
+            <div className="grid md:grid-cols-2 gap-4">
+
+              {/* 분석 대상 */}
+              <div className="neo-card neo-card-static p-4 flex flex-col gap-1.5">
+                <div className="flex items-center gap-2 font-black text-sm mb-1" style={{ color: "#1A1A1A" }}>
+                  <Database size={15} /> 분석 대상
                 </div>
-              ))}
+                <p className="text-sm" style={{ color: "#4A4A4A" }}>
+                  수집 기간: {meta?.date_range || "알 수 없음"}
+                </p>
+                <p className="text-sm" style={{ color: "#4A4A4A" }}>
+                  전체 게시글: {meta?.total_posts ? `${meta.total_posts.toLocaleString()}개` : "알 수 없음"}
+                </p>
+                <p className="text-xs mt-1.5" style={{ color: "#9CA3AF" }}>
+                  ※ 표본 추출: 댓글 수 기준 상위 {meta?.core_posts || 100}개 화제글을 AI가 집중 분석
+                </p>
+              </div>
+
+              {/* 표본 데이터 현황 */}
+              <div className="neo-card neo-card-static p-4 flex flex-col gap-1.5">
+                <div className="flex items-center gap-2 font-black text-sm mb-1" style={{ color: "#1A1A1A" }}>
+                  <FileText size={15} /> 표본 데이터 현황 (댓글수 기준)
+                </div>
+                {/* 최고 댓글수 */}
+                <p className="text-sm flex items-baseline gap-1 flex-wrap" style={{ color: "#4A4A4A" }}>
+                  <span className="shrink-0">최고 댓글수: {meta?.max_comment_post?.comment_count ?? "-"}개</span>
+                  {meta?.max_comment_post && (
+                    meta.max_comment_post.url
+                      ? <a href={meta.max_comment_post.url} target="_blank" rel="noopener noreferrer"
+                          className="truncate max-w-[200px] hover:underline flex items-center gap-0.5"
+                          style={{ color: "#4D96FF" }} title={meta.max_comment_post.title}>
+                          ({meta.max_comment_post.title}) <ExternalLink size={10} className="shrink-0" />
+                        </a>
+                      : <span className="truncate max-w-[200px]" title={meta.max_comment_post.title}>
+                          ({meta.max_comment_post.title})
+                        </span>
+                  )}
+                </p>
+                {/* 커트라인 */}
+                <p className="text-sm flex items-baseline gap-1 flex-wrap" style={{ color: "#4A4A4A" }}>
+                  <span className="shrink-0">커트라인: {meta?.min_comment_post?.comment_count ?? "-"}개</span>
+                  {meta?.min_comment_post && (
+                    meta.min_comment_post.url
+                      ? <a href={meta.min_comment_post.url} target="_blank" rel="noopener noreferrer"
+                          className="truncate max-w-[200px] hover:underline flex items-center gap-0.5"
+                          style={{ color: "#4D96FF" }} title={meta.min_comment_post.title}>
+                          ({meta.min_comment_post.title}) <ExternalLink size={10} className="shrink-0" />
+                        </a>
+                      : <span className="truncate max-w-[200px]" title={meta.min_comment_post.title}>
+                          ({meta.min_comment_post.title})
+                        </span>
+                  )}
+                </p>
+              </div>
+
             </div>
 
             {/* AI 한줄 요약 — 노란 블록 (앱 내 단 하나의 컬러 섹션) */}
-            <div className="neo-card p-5" style={{ backgroundColor: "#FFD600" }}>
+            <div className="neo-card neo-card-static p-5" style={{ backgroundColor: "#FFD600" }}>
               <p className="text-xs font-black mb-2 uppercase tracking-widest" style={{ color: "#1A1A1A", opacity: 0.55 }}>
                 🤖 AI 한줄 요약
               </p>
@@ -330,11 +354,7 @@ export default function ReportPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.06 }}
-                  className="neo-card p-4 flex flex-col h-full"
-                  style={{
-                    /* 호버 시 긍정→초록, 부정→빨간 그림자 */
-                    "--hover-shadow": op.is_positive ? "#56D0A0" : "#FF6B6B",
-                  } as React.CSSProperties}
+                  className="neo-card neo-card-static p-4 flex flex-col h-full"
                 >
                   {/* 긍정/부정 마커 */}
                   <div className="flex items-center gap-1.5 mb-3">
@@ -398,8 +418,7 @@ export default function ReportPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.06 }}
-                  className="neo-card p-4 flex flex-col h-full"
-                  style={{ "--hover-shadow": "#FB923C" } as React.CSSProperties}
+                  className="neo-card neo-card-static p-4 flex flex-col h-full"
                 >
                   {/* 카테고리 배지 */}
                   <span className="self-start text-xs font-black px-2.5 py-1 rounded-full border-2 mb-3"

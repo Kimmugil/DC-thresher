@@ -58,6 +58,14 @@ body {
     transform: translate(2px, 2px);
     box-shadow: 2px 2px 0px 0px var(--hover-shadow, #1A1A1A);
   }
+  /* 클릭 불가 카드 — hover 인터랙션 없음 */
+  .neo-card-static {
+    cursor: default;
+  }
+  .neo-card-static:hover {
+    transform: none;
+    box-shadow: 4px 4px 0px 0px #1A1A1A;
+  }
 
   .neo-button {
     border: 2px solid #1A1A1A;
