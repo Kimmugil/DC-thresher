@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(del \"C:\\\\Users\\\\kimjaei\\\\OneDrive - NEXON COMPANY\\\\김재이\\\\99. myproject\\\\DC-thresher\\\\src\\\\app\\\\guide\\\\page.tsx\")",
+      "Bash(npx tsc *)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(git commit *)",
+      "Bash(findstr tsc *)",
+      "Bash(node node_modules/typescript/bin/tsc --noEmit)"
+    ]
+  }
+}
