@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, Eye, EyeOff, ShieldCheck, Loader2, RefreshCw, BarChart2, RotateCcw } from "lucide-react";
+import { Lock, Eye, EyeOff, ShieldCheck, Loader2, RefreshCw, BarChart2, RotateCcw, MonitorPlay } from "lucide-react";
+import LimitModal from "@/components/LimitModal";
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
 
@@ -22,6 +23,7 @@ export default function AdminPage() {
   const [usage,        setUsage]        = useState<{ count: number; limit: number; date: string } | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
   const [limitInput,   setLimitInput]   = useState("");
+  const [previewModal, setPreviewModal] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,6 +157,12 @@ export default function AdminPage() {
   /* ── 대시보드 ─────────────────────────────────────────── */
   return (
     <main className="min-h-screen p-6 md:p-10" style={{ backgroundColor: "#FAFAFA" }}>
+      {/* 한도 초과 팝업 미리보기 */}
+      <LimitModal
+        open={previewModal}
+        limit={usage?.limit}
+        onClose={() => setPreviewModal(false)}
+      />
       <div className="max-w-6xl mx-auto">
 
         {/* 헤더 */}
@@ -200,6 +208,17 @@ export default function AdminPage() {
                   </span>
                   <span className="text-xs shrink-0" style={{ color: "#9CA3AF" }}>{usage.date}</span>
                 </div>
+
+                {/* 팝업 미리보기 */}
+                <button
+                  onClick={() => setPreviewModal(true)}
+                  className="neo-button flex items-center gap-1 px-3 py-1.5 text-xs shrink-0"
+                  style={{ backgroundColor: "#F0EFEC", color: "#1A1A1A" }}
+                  title="한도 초과 팝업 미리보기"
+                >
+                  <MonitorPlay size={11} />
+                  미리보기
+                </button>
 
                 {/* 초기화 버튼 */}
                 <button

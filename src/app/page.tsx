@@ -8,6 +8,7 @@ import { Search, ArrowRight, Loader2, AlertCircle, ChevronRight, Flame } from "l
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
 import ReportCard, { ReportCardData } from "@/components/ReportCard";
+import LimitModal from "@/components/LimitModal";
 
 const DC_GALLERY_URL_PATTERN =
   /^https?:\/\/gall\.dcinside\.com\/(mgallery\/|mini\/)?board\/(lists|view)\/?\?(?:[^"'<>]*[?&])?id=[a-zA-Z0-9_]+/;
@@ -52,8 +53,9 @@ export default function Home() {
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState("");
   const [statusMsg, setStatusMsg] = useState("");
-  const [recentReports, setRecentReports]       = useState<any[]>([]);
-  const [speedPerCard,  setSpeedPerCard]         = useState(5); // Config에서 override됨
+  const [recentReports, setRecentReports] = useState<any[]>([]);
+  const [speedPerCard,  setSpeedPerCard]  = useState(5);
+  const [limitModal,    setLimitModal]    = useState<{ open: boolean; limit?: number }>({ open: false });
 
   const pendingReports  = recentReports.filter(r => r.status === "PENDING");
   const completedCards  = recentReports.filter(r => r.status === "COMPLETED") as ReportCardData[];
@@ -101,14 +103,28 @@ export default function Home() {
       setStatusMsg(t["home.status_redirecting"]);
       setTimeout(() => router.push(`/history/${res.data.uuid}`), 1200);
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || t["home.error_generic"]);
+      const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
+      if (axiosError.response?.status === 429) {
+        // 일 한도 초과 — 메시지에서 숫자 추출 후 모달
+        const msg   = axiosError.response?.data?.message || "";
+        const match = msg.match(/\d+/);
+        setLimitModal({ open: true, limit: match ? parseInt(match[0]) : undefined });
+      } else {
+        setError(axiosError.response?.data?.message || t["home.error_generic"]);
+      }
       setLoading(false);
     }
   };
 
   return (
     <main style={{ backgroundColor: "#FAFAFA", minHeight: "100vh" }}>
+
+      {/* 일 한도 초과 모달 */}
+      <LimitModal
+        open={limitModal.open}
+        limit={limitModal.limit}
+        onClose={() => setLimitModal({ open: false })}
+      />
 
       {/* ── 히어로 ─────────────────────────────────────────────── */}
       <section className="flex flex-col items-center px-4 pt-16 pb-12">

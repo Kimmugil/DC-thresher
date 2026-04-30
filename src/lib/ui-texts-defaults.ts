@@ -39,6 +39,13 @@ export const DEFAULT_TEXTS: Record<string, string> = {
   "home.step4_label":           "리포트",
   "home.step4_desc":            "결과 즉시 열람 가능",
   "home.footer_note":           "마이너·정식·미니 갤러리 지원 · 분석 소요 약 1~3분 · 리포트는 고유 링크로 영구 보관",
+  /* ── 일 한도 초과 모달 ──────────────────────────────── */
+  "limit.modal_badge":   "오늘 마감",
+  "limit.modal_title":   "오늘의 탈곡이 마감되었습니다 🌾",
+  "limit.modal_desc":    "하루 최대 {limit}회 분석 한도에 도달했습니다.\n내일 자정(KST 00:00)에 자동으로 초기화됩니다.",
+  "limit.modal_sub":     "긴급한 경우 관리자에게 문의해주세요.",
+  "limit.modal_close":   "확인",
+
   "home.error_empty_url":       "디시인사이드 갤러리 URL을 입력해주세요.",
   "home.error_invalid_url":     "올바른 디시인사이드 갤러리 URL이 아닙니다. 주소창 URL을 그대로 붙여넣어 주세요.",
   "home.error_generic":         "분석 요청에 실패했습니다. 잠시 후 다시 시도해주세요.",
