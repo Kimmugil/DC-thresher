@@ -48,7 +48,7 @@ export async function fetchSiteConfig(): Promise<SiteConfig> {
     const doc = new GoogleSpreadsheet(sheetId, auth);
     await doc.loadInfo();
 
-    const sheet = doc.sheetsByTitle["Config"];
+    const sheet = doc.sheetsByTitle["config"];
     if (!sheet) return DEFAULT_CONFIG;
 
     const rows = await sheet.getRows();

@@ -33,7 +33,7 @@ async function getConfigSheet(): Promise<GoogleSpreadsheetWorksheet> {
   });
   const doc = new GoogleSpreadsheet(sheetId, auth);
   await doc.loadInfo();
-  const sheet = doc.sheetsByTitle["Config"];
+  const sheet = doc.sheetsByTitle["config"];
   if (!sheet) throw new Error("Config sheet not found");
   return sheet;
 }
