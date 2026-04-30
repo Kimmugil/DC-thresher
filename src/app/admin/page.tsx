@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, Eye, EyeOff, ShieldCheck, Loader2, RefreshCw } from "lucide-react";
+import { Lock, Eye, EyeOff, ShieldCheck, Loader2, RefreshCw, BarChart2, RotateCcw } from "lucide-react";
 import axios from "axios";
 import { useTexts } from "@/components/UITextsProvider";
 
@@ -16,7 +16,12 @@ export default function AdminPage() {
 
   const [reports,        setReports]        = useState<any[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
-  const [actionLoading,  setActionLoading]  = useState<number | null>(null); // 진행 중인 rowIndex
+  const [actionLoading,  setActionLoading]  = useState<number | null>(null);
+
+  // 일 사용량
+  const [usage,        setUsage]        = useState<{ count: number; limit: number; date: string } | null>(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [limitInput,   setLimitInput]   = useState("");
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +32,7 @@ export default function AdminPage() {
       if (res.data.ok) {
         setIsAuthenticated(true);
         fetchReports();
+        fetchUsage();
       }
     } catch (err: any) {
       setError(err.response?.data?.message || t["admin.error_auth"]);
@@ -45,6 +51,32 @@ export default function AdminPage() {
     } finally {
       setReportsLoading(false);
     }
+  };
+
+  const fetchUsage = async () => {
+    setUsageLoading(true);
+    try {
+      const res = await axios.get("/api/admin/daily-usage");
+      setUsage(res.data);
+      setLimitInput(String(res.data.limit));
+    } catch { /* ignore */ }
+    finally { setUsageLoading(false); }
+  };
+
+  const handleResetUsage = async () => {
+    setUsageLoading(true);
+    try { await axios.post("/api/admin/daily-usage", { action: "RESET" }); }
+    catch { /* ignore */ }
+    await fetchUsage();
+  };
+
+  const handleSetLimit = async () => {
+    const n = parseInt(limitInput);
+    if (!n || n < 1) return;
+    setUsageLoading(true);
+    try { await axios.post("/api/admin/daily-usage", { action: "SET_LIMIT", value: n }); }
+    catch { /* ignore */ }
+    await fetchUsage();
   };
 
   const handleAction = async (rowIndex: number, action: "HIDE" | "SHOW" | "DELETE") => {
@@ -140,6 +172,72 @@ export default function AdminPage() {
             <RefreshCw size={13} className={reportsLoading ? "animate-spin" : ""} />
             {t["admin.refresh_btn"]}
           </button>
+        </div>
+
+        {/* 일 사용량 위젯 */}
+        <div className="neo-card neo-card-static p-5 mb-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 shrink-0">
+              <BarChart2 size={16} style={{ color: "#1A1A1A" }} />
+              <span className="font-black text-sm" style={{ color: "#1A1A1A" }}>일 분석 사용량</span>
+            </div>
+
+            {/* 게이지 */}
+            {usage ? (
+              <>
+                <div className="flex items-center gap-3 flex-1 min-w-[180px]">
+                  <div className="flex-1 h-3 rounded-full border-2" style={{ borderColor: "#1A1A1A", backgroundColor: "#F0EFEC" }}>
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.min((usage.count / usage.limit) * 100, 100)}%`,
+                        backgroundColor: usage.count >= usage.limit ? "#FF6B6B" : "#FFD600",
+                      }}
+                    />
+                  </div>
+                  <span className="font-black text-sm tabular-nums shrink-0" style={{ color: "#1A1A1A" }}>
+                    {usage.count} / {usage.limit}
+                  </span>
+                  <span className="text-xs shrink-0" style={{ color: "#9CA3AF" }}>{usage.date}</span>
+                </div>
+
+                {/* 초기화 버튼 */}
+                <button
+                  onClick={handleResetUsage}
+                  disabled={usageLoading}
+                  className="neo-button flex items-center gap-1 px-3 py-1.5 text-xs shrink-0"
+                  style={{ backgroundColor: "#F0EFEC", color: "#1A1A1A" }}
+                  title="오늘 카운트 0으로 초기화"
+                >
+                  {usageLoading ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />}
+                  초기화
+                </button>
+
+                {/* 한도 변경 */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-bold" style={{ color: "#4A4A4A" }}>한도</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={limitInput}
+                    onChange={e => setLimitInput(e.target.value)}
+                    className="w-16 text-center text-sm font-black border-2 rounded-lg px-2 py-1 outline-none"
+                    style={{ borderColor: "#1A1A1A", backgroundColor: "#FFFFFF", color: "#1A1A1A" }}
+                  />
+                  <button
+                    onClick={handleSetLimit}
+                    disabled={usageLoading}
+                    className="neo-button px-3 py-1.5 text-xs font-bold shrink-0"
+                    style={{ backgroundColor: "#1A1A1A", color: "#FFFFFF" }}
+                  >
+                    저장
+                  </button>
+                </div>
+              </>
+            ) : (
+              <Loader2 size={14} className="animate-spin" style={{ color: "#9CA3AF" }} />
+            )}
+          </div>
         </div>
 
         {/* 에러 */}

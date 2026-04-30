@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
+import { checkAndIncrement } from '@/lib/daily-usage';
 
 // DC Inside 갤러리 URL 패턴 검증 (단순 문자열 포함 검사 대신 정규식 적용)
 const DC_GALLERY_URL_PATTERN =
@@ -28,6 +29,20 @@ export async function POST(request: Request) {
         { message: "서버 설정 오류: GitHub API 인증 정보가 누락되었습니다." },
         { status: 500 }
       );
+    }
+
+    // 일 사용량 체크 & 증가
+    try {
+      const usage = await checkAndIncrement();
+      if (!usage.allowed) {
+        return NextResponse.json(
+          { message: `오늘의 분석 한도(${usage.limit}회)에 도달했습니다. 내일 자정(KST)에 초기화됩니다.` },
+          { status: 429 }
+        );
+      }
+    } catch (usageErr) {
+      // Config 탭 읽기 실패 시 분석은 허용 (서비스 중단 방지)
+      console.warn("[daily-usage] 한도 체크 실패 (스킵):", usageErr);
     }
 
     const uuid        = uuidv4();

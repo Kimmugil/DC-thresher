@@ -15,7 +15,6 @@ interface Report extends ReportCardData {
   status: "PENDING" | "COMPLETED" | "FAILED";
 }
 
-const CARD_ROTATIONS = [1.2, -1.0, 0.8, -1.5, 1.0, -0.8];
 
 const STATUS_CONFIG = {
   COMPLETED: { labelKey: "status.completed", Icon: CheckCircle2, bg: "#56D0A0", color: "#166534" },
@@ -117,9 +116,6 @@ export default function HistoryPage() {
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-start"
           >
             {reports.map((report, idx) => {
-              const rot = report.status === "COMPLETED"
-                ? CARD_ROTATIONS[idx % CARD_ROTATIONS.length]
-                : 0;
               return (
                 <motion.div
                   key={report.uuid}
@@ -129,7 +125,7 @@ export default function HistoryPage() {
                   className="flex justify-center sm:justify-start"
                 >
                   {report.status === "COMPLETED" ? (
-                    <ReportCard report={report} rotate={rot} />
+                    <ReportCard report={report} rotate={0} />
                   ) : (
                     /* PENDING / FAILED — 간단 상태 카드 */
                     <PendingCard report={report} t={t} />
